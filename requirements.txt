@@ -1,0 +1,9 @@
+# Flutter Önizleyici APK Builder — Python bağımlılıkları
+# Kurulum: pip install -r requirements.txt
+#
+# Aslında hiçbir harici paket gerekmiyor.
+# Sadece standart kütüphane kullanılıyor:
+# - subprocess, http.server, zipfile, pathlib
+#
+# Node.js ve bubblewrap npx ile otomatik gelir.
+# Bu dosya boş bırakılabilir — bazı sistemler ister diye:
