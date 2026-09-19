@@ -1,0 +1,3196 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Flutter Ã–nizleyici</title>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:system-ui,sans-serif}
+  body{display:flex;flex-direction:column;background:#1e1e1e;color:#ddd}
+
+  header{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#252526;
+    border-bottom:1px solid #333;font-size:13px;flex-wrap:wrap}
+  header .logo{color:#42A5F5;font-weight:600;margin-right:4px}
+  header select,header button{background:#0e639c;color:#fff;border:0;padding:5px 10px;
+    border-radius:4px;cursor:pointer;font-size:12px}
+  header select{background:#333}
+  header button:hover,header select:hover{background:#1177bb}
+  header button.ghost{background:transparent;border:1px solid #555}
+  header button.ghost:hover{background:#333}
+  header .status{margin-left:auto;font-size:12px;color:#4ec9b0}
+  header .status.err{color:#f48771}
+
+  #tabs{display:flex;background:#1a1a1a;border-bottom:1px solid #333;padding:0 8px;
+    overflow-x:auto;min-height:32px;align-items:stretch}
+  #tabs .tab{display:flex;align-items:center;gap:6px;padding:6px 12px;background:#252526;
+    border:1px solid #333;border-bottom:0;border-radius:6px 6px 0 0;font-size:12px;
+    cursor:pointer;color:#aaa;margin-right:2px;user-select:none}
+  #tabs .tab.active{background:#1e1e1e;color:#9cdcfe;border-bottom:1px solid #1e1e1e;
+    margin-bottom:-1px;padding-bottom:7px}
+  #tabs .tab .close{cursor:pointer;opacity:.5;font-size:14px}
+  #tabs .tab .close:hover{opacity:1;color:#f48771}
+  #tabs .tab-actions{margin-left:auto;display:flex;align-items:center;padding:3px}
+  #tabs .tab-actions button{background:transparent;border:1px solid #555;color:#aaa;
+    border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer}
+  #tabs .tab-actions button:hover{background:#333;color:#fff}
+
+  main{flex:1;display:flex;min-height:0;position:relative}
+
+  #editor-pane{flex:1.4;display:flex;flex-direction:column;min-width:300px;
+    border-right:1px solid #333}
+  #code{flex:1;background:#1e1e1e;color:#9cdcfe;border:0;outline:0;padding:14px 18px;
+    font-family:Consolas,ui-monospace,monospace;font-size:13.5px;line-height:1.6;
+    resize:none;tab-size:2;white-space:pre-wrap;word-break:break-word;overflow-y:auto}
+  #logs{height:120px;overflow:auto;background:#111;border-top:1px solid #333;
+    padding:8px 12px;font-family:Consolas,monospace;font-size:12px;
+    white-space:pre-wrap;color:#9cdcfe}
+  #logs .err{color:#f48771}
+  #logs .ok{color:#4ec9b0}
+  #logs .hint{color:#808080}
+
+  #splitter{width:6px;background:#333;cursor:col-resize;flex-shrink:0}
+  #splitter:hover{background:#2196F3}
+
+  #preview-pane{flex:1;display:flex;align-items:center;justify-content:center;
+    background:#2b2b2b;padding:6px;min-width:260px;overflow:hidden}
+  .phone-wrap{transform-origin:center center;transition:transform .12s ease-out}
+  .phone{width:380px;height:720px;background:#fff;border-radius:28px;
+    box-shadow:0 24px 60px rgba(0,0,0,.55),0 0 0 8px #111;
+    overflow:hidden;display:flex;flex-direction:column;
+    font-family:'Roboto',system-ui,sans-serif;color:#212121;position:relative;
+    --bg:#FAFAFA;--fg:#212121;--card:#fff;--subtle:#666;
+    --border:#E0E0E0;--surface:#fff;--primary:#2196F3;transition:background .3s}
+  .phone.theme-dark{--bg:#121212;--fg:#E0E0E0;--card:#1E1E1E;--subtle:#9E9E9E;
+    --border:#2C2C2C;--surface:#1E1E1E;--primary:#BB86FC;
+    background:#121212;color:#E0E0E0}
+  .phone.theme-dark .f-text{color:#E0E0E0}
+  .phone.theme-dark .f-card{background:#1E1E1E;color:#E0E0E0}
+  .phone.theme-dark .f-divider{background:#2C2C2C}
+  .phone.theme-dark .f-textfield{background:#1E1E1E;color:#E0E0E0;border-color:#3C3C3C}
+  .phone.theme-dark .f-chip{background:#2C2C2C;color:#E0E0E0}
+
+  .f-appbar{background:#2196F3;color:#fff;padding:14px 16px;font-size:20px;
+    font-weight:500;display:flex;align-items:center;gap:12px;
+    box-shadow:0 2px 4px rgba(0,0,0,.2);z-index:2;flex-shrink:0}
+  .f-appbar .title{flex:1}
+  .f-appbar .back,.f-appbar .menu-btn{cursor:pointer;font-size:22px;padding:0 6px;line-height:1}
+  .f-appbar .back:hover,.f-appbar .menu-btn:hover{opacity:.8}
+  .f-scaffold{display:flex;flex-direction:column;height:100%;position:relative}
+  .f-body{flex:1;overflow:auto;position:relative}
+  .f-fab{position:absolute;right:16px;bottom:16px;width:56px;height:56px;
+    border-radius:50%;background:#2196F3;color:#fff;border:0;font-size:26px;
+    cursor:pointer;box-shadow:0 6px 12px rgba(0,0,0,.3);z-index:5}
+  .f-fab:hover{background:#1976D2}
+  .f-column,.f-row{display:flex}
+  .f-column{flex-direction:column}
+  .f-row{flex-direction:row}
+  .f-center{display:flex;align-items:center;justify-content:center;flex:1}
+  .f-expanded{flex:1;min-width:0}
+  .f-text{line-height:1.4;word-break:break-word}
+  .f-icon{display:inline-flex;align-items:center;justify-content:center;line-height:1}
+  .f-btn{border:0;padding:10px 22px;border-radius:4px;cursor:pointer;font-size:14px;
+    font-weight:500;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:.15s}
+  .f-btn:hover{filter:brightness(.92)}
+  .f-btn:active{transform:translateY(1px)}
+  .f-btn.elevated{background:#2196F3;color:#fff}
+  .f-btn.outlined{background:transparent;border:1px solid #2196F3;color:#2196F3;box-shadow:none}
+  .f-btn.text{background:transparent;box-shadow:none;color:#2196F3}
+  .f-card{background:var(--card);border-radius:8px;padding:14px;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);margin:6px 0;transition:background .3s,color .3s}
+  .f-avatar{border-radius:50%;background:#BDBDBD;overflow:hidden;display:inline-flex;
+    align-items:center;justify-content:center;font-weight:600;color:#fff;flex-shrink:0}
+  .f-divider{height:1px;background:var(--border);margin:8px 0}
+  .f-chip{display:inline-block;padding:4px 12px;border-radius:16px;
+    background:#E0E0E0;font-size:13px;margin:2px}
+  .f-textfield{padding:12px 14px;border:1px solid #BDBDBD;border-radius:6px;
+    font-size:14px;width:100%;outline:0;background:#fff}
+  .f-textfield:focus{border-color:#2196F3}
+  .f-switch{display:inline-flex;align-items:center;width:44px;height:24px;
+    background:#BDBDBD;border-radius:12px;position:relative;transition:.2s;cursor:pointer}
+  .f-switch.on{background:#2196F3}
+  .f-switch .knob{position:absolute;left:2px;top:2px;width:20px;height:20px;
+    background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .f-switch.on .knob{left:22px}
+  .f-badge{display:inline-block;padding:2px 8px;border-radius:10px;
+    background:#F44336;color:#fff;font-size:11px;font-weight:600}
+  .f-unknown{color:#F44336;border:1px dashed #F44336;padding:6px 10px;
+    font-size:12px;border-radius:4px;display:inline-block}
+  .f-hero{display:inline-block}
+  .f-ink{transition:background .15s;display:block}
+  .f-ink:hover{background:rgba(0,0,0,.05)}
+  .f-ink:active{background:rgba(0,0,0,.1)}
+
+  @keyframes slideInRight{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes slideInLeft{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes slideBar{0%{margin-left:-40%}100%{margin-left:100%}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes drawerIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+
+  .f-drawer-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4);
+    z-index:300;animation:fadeIn .2s}
+  .f-drawer{position:absolute;top:0;bottom:0;left:0;width:280px;background:var(--surface);
+    box-shadow:4px 0 16px rgba(0,0,0,.3);z-index:301;animation:drawerIn .25s ease-out;
+    overflow:auto}
+  .f-sheet-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4);
+    z-index:300;animation:fadeIn .2s}
+  .f-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);
+    border-radius:16px 16px 0 0;padding:16px;box-shadow:0 -8px 24px rgba(0,0,0,.3);
+    z-index:301;animation:sheetUp .25s ease-out;max-height:70%;overflow:auto}
+  .f-sheet::before{content:"";display:block;width:36px;height:4px;background:#BDBDBD;
+    border-radius:2px;margin:0 auto 12px}
+
+  #prefs-panel{position:absolute;top:8px;right:8px;width:300px;
+    max-height:calc(100% - 16px);background:#1a1a1a;border:1px solid #333;
+    border-radius:8px;font-family:Consolas,monospace;font-size:12px;color:#9cdcfe;
+    z-index:100;overflow:auto;padding:12px;display:none;
+    box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  #prefs-panel.show{display:block}
+  #prefs-panel .p-row{padding:4px 0;border-bottom:1px solid #2a2a2a}
+  #prefs-panel .p-key{color:#4ec9b0}
+  #prefs-panel .p-val{color:#ce9178}
+
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#323232;color:#fff;padding:12px 20px;border-radius:6px;font-size:13px;
+    box-shadow:0 4px 12px rgba(0,0,0,.4);opacity:0;pointer-events:none;
+    transition:all .25s;z-index:9999}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* â”€â”€â”€ Standalone (APK) modu â”€â”€â”€ */
+  body.standalone{display:block;background:#000;overflow:hidden}
+  body.standalone header,
+  body.standalone #tabs,
+  body.standalone #editor-pane,
+  body.standalone #splitter{display:none!important}
+  body.standalone main{display:block;width:100vw;height:100vh;overflow:hidden;position:fixed;inset:0}
+  body.standalone #preview-pane{width:100vw;height:100vh;padding:0;background:#fff;
+    display:block;position:static}
+  body.standalone .phone-wrap{transform:none!important;width:100vw;height:100vh}
+  body.standalone .phone{width:100vw!important;height:100vh!important;border-radius:0!important;
+    box-shadow:none!important;max-width:none;max-height:none}
+  body.standalone #prefs-panel{display:none!important}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">âš¡ Flutter Ã–nizleyici</span>
+  <select id="presets">
+    <option value="counter">StatefulWidget + SayaÃ§</option>
+    <option value="expr">Ä°fade Parser (AST)</option>
+    <option value="anim">Animasyon</option>
+    <option value="prefs">SharedPreferences</option>
+    <option value="theme">Theme.of()</option>
+    <option value="multi">Ã‡oklu Dosya (import)</option>
+    <option value="async">AsyncBuilder</option>
+    <option value="list">if / for / ListView.builder</option>
+    <option value="hero">Hero</option>
+    <option value="rich">RichText</option>
+    <option value="gesture">GestureDetector + InkWell</option>
+    <option value="nav">Navigator + Drawer</option>
+  </select>
+  <button id="renderBtn">â–¶ Ã‡alÄ±ÅŸtÄ±r</button>
+  <button id="prefsBtn" class="ghost">ğŸ’¾ Prefs</button>
+  <button id="shareBtn" class="ghost">ğŸ”— PaylaÅŸ</button>
+  <button id="apkBtn" style="background:#4CAF50;border-color:#4CAF50">ğŸ“¦ APK OluÅŸtur</button>
+  <button id="clearBtn" class="ghost">ğŸ—‘ Temizle</button>
+  <span class="status" id="status">HazÄ±r</span>
+</header>
+
+<div id="tabs">
+  <div class="tab-actions">
+    <button id="addFileBtn" title="Yeni dosya">+ Dosya</button>
+  </div>
+</div>
+
+<main>
+  <div id="editor-pane">
+    <textarea id="code" spellcheck="false"></textarea>
+    <div id="logs"><div class="hint">Konsol hazÄ±r.</div></div>
+  </div>
+  <div id="splitter"></div>
+  <div id="preview-pane">
+    <div class="phone-wrap" id="phoneWrap">
+      <div class="phone" id="phone"></div>
+    </div>
+    <div id="prefs-panel"></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+/* Standalone (APK) mod algÄ±lama â€” script body sonunda olduÄŸu iÃ§in document.body hazÄ±r */
+const STANDALONE = !!window.__STANDALONE_MODE;
+if(STANDALONE){
+  try{document.body.classList.add('standalone');}catch(e){}
+}
+
+/* ============================================================
+   1) YARDIMCILAR
+   ============================================================ */
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function escAttr(s){return String(s).replace(/[&"']/g,c=>({'&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))}
+function px(v,def){if(v===undefined||v===null)return def===undefined?null:def;if(typeof v==='number')return v+'px';return v}
+function flexAlign(v,def){if(def===undefined)def='flex-start';if(!v)return def;const s=String(v).replace('MainAxisAlignment.','').replace('CrossAxisAlignment.','');return{start:'flex-start',center:'center',end:'flex-end',spaceBetween:'space-between',spaceAround:'space-around',spaceEvenly:'space-evenly',stretch:'stretch',baseline:'baseline'}[s]||def}
+function crossAlign(v,def){if(def===undefined)def='center';if(!v)return def;const s=String(v).replace('CrossAxisAlignment.','');return{start:'flex-start',center:'center',end:'flex-end',stretch:'stretch',baseline:'baseline'}[s]||def}
+
+/* ============================================================
+   2) SABÄ°TLER
+   ============================================================ */
+const Colors={blue:'#2196F3',red:'#F44336',green:'#4CAF50',orange:'#FF9800',
+  purple:'#9C27B0',pink:'#E91E63',teal:'#009688',grey:'#9E9E9E',black:'#000000',
+  white:'#FFFFFF',amber:'#FFC107',indigo:'#3F51B5',cyan:'#00BCD4',lime:'#CDDC39',
+  brown:'#795548',yellow:'#FFEB3B',deepPurple:'#673AB7',blueGrey:'#607D8B'};
+
+const ICONS={home:'ğŸ ',search:'ğŸ”',settings:'âš™ï¸',person:'ğŸ‘¤',favorite:'â¤ï¸',star:'â­',
+  add:'â•',menu:'â˜°',arrow_back:'â†',arrow_forward:'â†’',check:'âœ“',close:'âœ•',
+  info:'â„¹ï¸',warning:'âš ï¸',email:'âœ‰ï¸',phone:'ğŸ“',shopping_cart:'ğŸ›’',notifications:'ğŸ””',
+  delete:'ğŸ—‘ï¸',edit:'âœï¸',share:'ğŸ”—',download:'â¬‡ï¸',upload:'â¬†ï¸',camera:'ğŸ“·',
+  lock:'ğŸ”’',visibility:'ğŸ‘ï¸',calendar_today:'ğŸ“…',location_on:'ğŸ“',play_arrow:'â–¶ï¸',
+  pause:'â¸ï¸',refresh:'ğŸ”„',more_vert:'â‹®',explore:'ğŸ§­',message:'ğŸ’¬',dashboard:'ğŸ“Š',
+  send:'â¤',exit_to_app:'â†ª',person_add:'ğŸ‘¥',card_giftcard:'ğŸ',local_offer:'ğŸ·ï¸',
+  dark_mode:'ğŸŒ™',light_mode:'â˜€ï¸',palette:'ğŸ¨',save:'ğŸ’¾',cloud:'â˜ï¸',bolt:'âš¡',
+  play:'â–¶',stop:'â¹',restart_alt:'â†»',swap_horiz:'â‡„',timer:'â±',trending_up:'ğŸ“ˆ'};
+const Icons=ICONS;
+
+const FLUTTER_LOGO_SVG='<svg width="100%" height="100%" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><path fill="#42A5F5" d="M100 0 40 60h60V0z"/><path fill="#42A5F5" d="M40 60v40h60V60H40z"/><path fill="#0D47A1" d="M40 100 100 160v40L40 140v-40z"/><path fill="#1E88E5" d="M100 60v100l60-60-60-40z"/><path fill="#1565C0" d="M100 160l30-30 30 30-30 30-30-30z"/></svg>';
+
+function resolveColor(v,def){
+  if(def===undefined)def=null;
+  if(!v)return def;
+  if(typeof v!=='string')return def;
+  if(v==='transparent')return 'transparent';
+  if(v.startsWith('#'))return v;
+  if(v.startsWith('Theme.of.')){
+    const prop=v.slice(9);
+    return getThemeColor(prop);
+  }
+  if(v.startsWith('Colors.')){
+    const k=v.slice(7);
+    if(Colors[k])return Colors[k];
+  }
+  return v;
+}
+
+function resolveIcon(name){
+  if(!name||typeof name!=='string')return '?';
+  if(name==='Icons.flutter_dash'||name==='flutter')return 'FLUTTER_LOGO';
+  if(name.startsWith('Icons.'))name=name.slice(6);
+  return ICONS[name]||name.slice(0,2).toUpperCase();
+}
+
+function getThemeColor(prop){
+  const dark=STATE.theme==='dark';
+  const t={
+    primaryColor: dark?'#BB86FC':'#2196F3',
+    accentColor: dark?'#03DAC6':'#FF4081',
+    backgroundColor: dark?'#121212':'#FAFAFA',
+    scaffoldBackgroundColor: dark?'#121212':'#FAFAFA',
+    cardColor: dark?'#1E1E1E':'#FFFFFF',
+    canvasColor: dark?'#1E1E1E':'#FFFFFF',
+    dividerColor: dark?'#2C2C2C':'#E0E0E0',
+    errorColor: dark?'#CF6679':'#B00020'
+  };
+  return t[prop]||(dark?'#E0E0E0':'#212121');
+}
+
+/* ============================================================
+   3) GLOBAL STATE
+   ============================================================ */
+const STATE={
+  counter:0, toggles:{}, inputs:{}, sliders:{},
+  bottomNav:{__main:0}, tabs:{},
+  navigator:{stack:['/'], direction:'none'},
+  overlay:null, drawer:{open:false}, sheet:{open:false},
+  theme:'light', async:{}
+};
+
+const PROGRAM={vars:{}, classes:{}, imports:[]};
+const SCOPE_STACK=[{}];
+const STATEFUL_INSTANCES={};
+const ANIM={};
+const ASYNC_ID_STORE={async_counter:0};
+
+/* ============================================================
+   4) PREFS (SharedPreferences benzeri)
+   ============================================================ */
+const PREFS_PREFIX='flutter_prefs_v1_';
+const Prefs={
+  _key(k){return PREFS_PREFIX+k},
+  _set(k,v,t){try{localStorage.setItem(this._key(k),JSON.stringify({t,v}))}catch(e){}return this},
+  _get(k){try{const r=localStorage.getItem(this._key(k));return r?JSON.parse(r):null}catch(e){return null}},
+  setInt(k,v){return this._set(k,parseInt(v)||0,'int')},
+  setDouble(k,v){return this._set(k,parseFloat(v)||0,'dbl')},
+  setString(k,v){return this._set(k,String(v),'str')},
+  setBool(k,v){return this._set(k,!!v,'bool')},
+  getInt(k,def){const x=this._get(k);return x&&x.t==='int'?x.v:(def===undefined?0:def)},
+  getDouble(k,def){const x=this._get(k);return x&&(x.t==='dbl'||x.t==='int')?x.v:(def===undefined?0:def)},
+  getString(k,def){const x=this._get(k);return x&&x.t==='str'?x.v:(def===undefined?'':def)},
+  getBool(k,def){const x=this._get(k);return x&&x.t==='bool'?x.v:(def===undefined?false:def)},
+  remove(k){try{localStorage.removeItem(this._key(k))}catch(e){}return this},
+  clear(){try{const keys=Object.keys(localStorage);keys.forEach(k=>{if(k.startsWith(PREFS_PREFIX))localStorage.removeItem(k)})}catch(e){}return this},
+  keys(){try{return Object.keys(localStorage).filter(k=>k.startsWith(PREFS_PREFIX)).map(k=>k.slice(PREFS_PREFIX.length))}catch(e){return[]}},
+  all(){const o={};this.keys().forEach(k=>{const v=this._get(k);o[k]=v?v.v:null});return o}
+};
+
+/* ============================================================
+   5) Ä°FADE PARSER (Pratt â€” recursive descent)
+   ============================================================ */
+function parseExpr(src){
+  let i=0;
+  const L=src.length;
+  const skip=()=>{while(i<L&&/\s/.test(src[i]))i++};
+
+  function parseTernary(){
+    const cond=parseOr();
+    skip();
+    if(src[i]==='?'&&src[i+1]!=='?'){
+      i++;
+      const t=parseTernary();
+      skip();
+      if(src[i]===':')i++;
+      const f=parseTernary();
+      return{t:'?',c:cond,a:t,b:f};
+    }
+    return cond;
+  }
+  function parseOr(){
+    let l=parseAnd();
+    while(true){
+      skip();
+      if(src[i]==='|'&&src[i+1]==='|'){i+=2;l={t:'||',a:l,b:parseAnd()}}
+      else if(src[i]==='?'&&src[i+1]==='?'){i+=2;l={t:'??',a:l,b:parseAnd()}}
+      else break;
+    }
+    return l;
+  }
+  function parseAnd(){
+    let l=parseEq();
+    while(true){
+      skip();
+      if(src[i]==='&'&&src[i+1]==='&'){i+=2;l={t:'&&',a:l,b:parseEq()}}
+      else break;
+    }
+    return l;
+  }
+  function parseEq(){
+    let l=parseCmp();
+    while(true){
+      skip();
+      if(src.slice(i,i+3)==='==='){i+=3;l={t:'===',a:l,b:parseCmp()}}
+      else if(src.slice(i,i+3)==='!=='){i+=3;l={t:'!==',a:l,b:parseCmp()}}
+      else if(src.slice(i,i+2)==='=='){i+=2;l={t:'==',a:l,b:parseCmp()}}
+      else if(src.slice(i,i+2)==='!='){i+=2;l={t:'!=',a:l,b:parseCmp()}}
+      else break;
+    }
+    return l;
+  }
+  function parseCmp(){
+    let l=parseAdd();
+    while(true){
+      skip();
+      if(src.slice(i,i+2)==='<='){i+=2;l={t:'<=',a:l,b:parseAdd()}}
+      else if(src.slice(i,i+2)==='>='){i+=2;l={t:'>=',a:l,b:parseAdd()}}
+      else if(src[i]==='<'&&src[i+1]!=='<'){i++;l={t:'<',a:l,b:parseAdd()}}
+      else if(src[i]==='>'&&src[i+1]!=='>'){i++;l={t:'>',a:l,b:parseAdd()}}
+      else break;
+    }
+    return l;
+  }
+  function parseAdd(){
+    let l=parseMul();
+    while(true){
+      skip();
+      if(src[i]==='+'){i++;l={t:'+',a:l,b:parseMul()}}
+      else if(src[i]==='-'&&src[i+1]!=='-'){i++;l={t:'-',a:l,b:parseMul()}}
+      else break;
+    }
+    return l;
+  }
+  function parseMul(){
+    let l=parseUnary();
+    while(true){
+      skip();
+      if(src[i]==='*'){i++;l={t:'*',a:l,b:parseUnary()}}
+      else if(src[i]==='/'&&src[i+1]!=='/'){i++;l={t:'/',a:l,b:parseUnary()}}
+      else if(src[i]==='%'){i++;l={t:'%',a:l,b:parseUnary()}}
+      else break;
+    }
+    return l;
+  }
+  function parseUnary(){
+    skip();
+    if(src[i]==='!'&&src[i+1]!=='='){i++;return{t:'!',e:parseUnary()}}
+    if(src[i]==='-'&&src[i+1]!=='-'){i++;return{t:'-',e:parseUnary()}}
+    return parsePostfix();
+  }
+  function parsePostfix(){
+    let node=parsePrimary();
+    while(true){
+      skip();
+      if(src[i]==='.'&&/[A-Za-z_]/.test(src[i+1]||'')){
+        i++;
+        const name=readId();
+        skip();
+        if(src[i]==='('){
+          node={t:'call',callee:{t:'member',obj:node,name},args:readArgs()};
+        } else {
+          node={t:'member',obj:node,name};
+        }
+      } else if(src[i]==='('){
+        node={t:'call',callee:node,args:readArgs()};
+      } else if(src[i]==='['){
+        i++;
+        const idx=parseTernary();
+        skip();
+        if(src[i]===']')i++;
+        node={t:'index',obj:node,idx};
+      } else break;
+    }
+    return node;
+  }
+  function readId(){skip();const s=i;while(i<L&&/[A-Za-z0-9_]/.test(src[i]))i++;return src.slice(s,i)}
+  function readArgs(){
+    i++;
+    const args=[];
+    skip();
+    while(i<L&&src[i]!==')'){
+      args.push(parseTernary());
+      skip();
+      if(src[i]===',')i++;
+      skip();
+    }
+    if(src[i]===')')i++;
+    return args;
+  }
+  function parsePrimary(){
+    skip();
+    if(/[0-9]/.test(src[i]||'')||(src[i]==='.'&&/[0-9]/.test(src[i+1]||''))){
+      const s=i;
+      while(i<L&&/[0-9.]/.test(src[i]))i++;
+      return{t:'num',v:parseFloat(src.slice(s,i))};
+    }
+    if(src[i]==='"'||src[i]==="'"){
+      const q=src[i];i++;
+      const s=i;
+      while(i<L&&src[i]!==q){if(src[i]==='\\')i++;i++}
+      const v=src.slice(s,i);i++;
+      return{t:'str',v};
+    }
+    if(src[i]==='('){
+      i++;
+      const e=parseTernary();
+      skip();
+      if(src[i]===')')i++;
+      return e;
+    }
+    const id=readId();
+    if(!id)throw new Error('Beklenmeyen: '+src[i]);
+    if(id==='true')return{t:'bool',v:true};
+    if(id==='false')return{t:'bool',v:false};
+    if(id==='null')return{t:'null'};
+    return{t:'id',name:id};
+  }
+  return parseTernary();
+}
+
+function evalAST(node){
+  if(!node)return undefined;
+  switch(node.t){
+    case 'num': return node.v;
+    case 'str': return node.v;
+    case 'bool': return node.v;
+    case 'null': return null;
+    case 'id': {
+      const n=node.name;
+      if(n==='STATE')return STATE;
+      if(n==='Colors')return Colors;
+      if(n==='Icons')return Icons;
+      if(n==='Math')return Math;
+      if(n==='Prefs')return Prefs;
+      if(n==='ANIM')return ANIM;
+      return lookupVar(n);
+    }
+    case '!': return !evalAST(node.e);
+    case '-': return -evalAST(node.e);
+    case '+': return (evalAST(node.a)||0)+(evalAST(node.b)||0);
+    case '-': return (evalAST(node.a)||0)-(evalAST(node.b)||0);
+    case '*': return (evalAST(node.a)||0)*(evalAST(node.b)||0);
+    case '/': { const b=evalAST(node.b); return b===0?0:(evalAST(node.a)||0)/b }
+    case '%': return (evalAST(node.a)||0)%(evalAST(node.b)||1);
+    case '<': return evalAST(node.a)<evalAST(node.b);
+    case '>': return evalAST(node.a)>evalAST(node.b);
+    case '<=': return evalAST(node.a)<=evalAST(node.b);
+    case '>=': return evalAST(node.a)>=evalAST(node.b);
+    case '==': return evalAST(node.a)==evalAST(node.b);
+    case '!=': return evalAST(node.a)!=evalAST(node.b);
+    case '===': return evalAST(node.a)===evalAST(node.b);
+    case '!==': return evalAST(node.a)!==evalAST(node.b);
+    case '&&': return evalAST(node.a)&&evalAST(node.b);
+    case '||': return evalAST(node.a)||evalAST(node.b);
+    case '??': { const a=evalAST(node.a); return a!=null?a:evalAST(node.b) }
+    case '?': return evalAST(node.c)?evalAST(node.a):evalAST(node.b);
+    case 'member': {
+      const obj=evalAST(node.obj);
+      if(obj==null)return undefined;
+      return obj[node.name];
+    }
+    case 'index': {
+      const obj=evalAST(node.obj);
+      const idx=evalAST(node.idx);
+      if(obj==null)return undefined;
+      return obj[idx];
+    }
+    case 'call': {
+      const args=node.args.map(evalAST);
+      if(node.callee.t==='member'){
+        const obj=evalAST(node.callee.obj);
+        if(obj==null)return undefined;
+        const fn=obj[node.callee.name];
+        if(typeof fn==='function')return fn.apply(obj,args);
+        return undefined;
+      }
+      if(node.callee.t==='id'){
+        const name=node.callee.name;
+        const fn=lookupVar(name);
+        if(typeof fn==='function')return fn.apply(null,args);
+        if(name==='String')return String(args[0]);
+        if(name==='Number')return Number(args[0]);
+        if(name==='parseInt')return parseInt(args[0]);
+        if(name==='parseFloat')return parseFloat(args[0]);
+        return undefined;
+      }
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+function pushEnv(env){SCOPE_STACK.push(env)}
+function popEnv(){SCOPE_STACK.pop()}
+function lookupVar(name){
+  for(let i=SCOPE_STACK.length-1;i>=0;i--){
+    if(name in SCOPE_STACK[i])return SCOPE_STACK[i][name];
+  }
+  if(name in PROGRAM.vars)return PROGRAM.vars[name];
+  if(name in STATE)return STATE[name];
+  return undefined;
+}
+
+function evalStr(exprStr){
+  try{
+    const ast=parseExpr(exprStr);
+    return evalAST(ast);
+  }catch(e){return undefined}
+}
+
+/* ============================================================
+   6) INTERPOLASYON
+   ============================================================ */
+function interp(str){
+  if(typeof str!=='string')return str;
+  let s=str;
+  s=s.replace(/\\\$/g,'\x00');
+  s=s.replace(/\$\{\{([\s\S]*?)\}\}/g,(_,expr)=>{
+    const v=evalStr(expr.trim());
+    return v==null?'':String(v);
+  });
+  s=s.replace(/\$\{([^}]*)\}/g,(_,expr)=>{
+    const v=evalStr(expr.trim());
+    return v==null?'':String(v);
+  });
+  s=s.replace(/\$([A-Za-z_][\w.]*)/g,(_,name)=>{
+    const v=evalStr(name);
+    return v==null?'':String(v);
+  });
+  s=s.replace(/\x00/g,'$');
+  return s;
+}
+
+/* ============================================================
+   7) ANA PARSER
+   ============================================================ */
+function parseProgram(src){
+  const P={src,i:0,L:src.length};
+  const vars={};
+  const classes={};
+  const imports=[];
+  let widget=null;
+
+  function skipWs(){
+    while(P.i<P.L){
+      const c=P.src[P.i];
+      if(/\s/.test(c)){P.i++;continue}
+      if(c==='/'&&P.src[P.i+1]==='/'){while(P.i<P.L&&P.src[P.i]!=='\n')P.i++;continue}
+      if(c==='/'&&P.src[P.i+1]==='*'){P.i+=2;while(P.i<P.L-1&&!(P.src[P.i]==='*'&&P.src[P.i+1]==='/'))P.i++;P.i+=2;continue}
+      break;
+    }
+  }
+
+  function isIdStart(c){return /[A-Za-z_]/.test(c||'')}
+  function isIdChar(c){return /[A-Za-z0-9_]/.test(c||'')}
+
+  function readIdent(){
+    skipWs();
+    const s=P.i;
+    while(P.i<P.L&&isIdChar(P.src[P.i]))P.i++;
+    return P.src.slice(s,P.i);
+  }
+
+  function readDotted(){
+    skipWs();
+    const s=P.i;
+    while(P.i<P.L&&/[A-Za-z0-9_.]/.test(P.src[P.i]))P.i++;
+    return P.src.slice(s,P.i);
+  }
+
+  function readString(){
+    skipWs();
+    const q=P.src[P.i];P.i++;
+    const s=P.i;
+    while(P.i<P.L&&P.src[P.i]!==q){
+      if(P.src[P.i]==='\\')P.i++;
+      P.i++;
+    }
+    const raw=P.src.slice(s,P.i);
+    P.i++;
+    return raw.replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\"/g,'"').replace(/\\'/g,"'").replace(/\\\\/g,'\\');
+  }
+
+  function readNumber(){
+    skipWs();
+    const s=P.i;
+    if(P.src[P.i]==='-')P.i++;
+    while(P.i<P.L&&/[0-9.]/.test(P.src[P.i]))P.i++;
+    return parseFloat(P.src.slice(s,P.i));
+  }
+
+  function wordIs(w){
+    if(P.i+w.length>P.L)return false;
+    if(P.src.substr(P.i,w.length)!==w)return false;
+    const after=P.src[P.i+w.length];
+    return !after||!/[A-Za-z0-9_]/.test(after);
+  }
+  function consumeWord(){while(P.i<P.L&&isIdChar(P.src[P.i]))P.i++}
+
+  function readParenContent(){
+    P.i++;
+    let depth=1;
+    const s=P.i;
+    while(P.i<P.L&&depth>0){
+      const c=P.src[P.i];
+      if(c==='"'||c==="'"){
+        const q=c;P.i++;
+        while(P.i<P.L&&P.src[P.i]!==q){
+          if(P.src[P.i]==='\\')P.i++;
+          P.i++;
+        }
+        P.i++;
+        continue;
+      }
+      if(c==='(')depth++;
+      else if(c===')'){depth--;if(depth===0)break}
+      P.i++;
+    }
+    const content=P.src.slice(s,P.i);
+    P.i++;
+    return content;
+  }
+
+  function skipBlock(){
+    let depth=1;
+    P.i++;
+    while(P.i<P.L&&depth>0){
+      if(P.src[P.i]==='{')depth++;
+      else if(P.src[P.i]==='}'){depth--;if(depth===0){P.i++;return}}
+      P.i++;
+    }
+  }
+
+  function parseValue(){
+    skipWs();
+    if(P.i>=P.L)return null;
+    if(wordIs('const')||wordIs('final')){consumeWord();skipWs()}
+    if(wordIs('if'))return parseIfExpr();
+    if(wordIs('for'))return parseForExpr();
+    const c=P.src[P.i];
+    if(c==='"'||c==="'")return readString();
+    if(c==='[')return parseList();
+    if(c==='{')return parseObj();
+    if(c&&/[-0-9]/.test(c))return readNumber();
+    if(c==='('){
+      const save=P.i;
+      P.i++;
+      const params=[];
+      let ok=true;
+      skipWs();
+      while(P.i<P.L&&P.src[P.i]!==')'){
+        if(isIdStart(P.src[P.i])){
+          params.push(readIdent());
+          skipWs();
+          if(P.src[P.i]===','){P.i++;skipWs()}
+        } else { ok=false; break }
+      }
+      if(P.src[P.i]===')')P.i++;
+      skipWs();
+      if(ok&&P.src[P.i]==='='&&P.src[P.i+1]==='>'){
+        P.i+=2;
+        return {type:'__lambda',params,body:parseValue()};
+      }
+      if(ok&&P.src[P.i]==='{'){
+        P.i++;
+        let depth=1;
+        const blockStart=P.i;
+        while(P.i<P.L&&depth>0){
+          if(P.src[P.i]==='{')depth++;
+          else if(P.src[P.i]==='}'){depth--;if(depth===0)break}
+          P.i++;
+        }
+        const blockBody=P.src.slice(blockStart,P.i);
+        P.i++;
+        const retIdx=blockBody.search(/\breturn\b/);
+        let retExpr=null;
+        if(retIdx!==-1){
+          const sub=parseProgram(blockBody.slice(retIdx+6));
+          retExpr=sub.widget;
+        }
+        return {type:'__lambda',params,body:retExpr};
+      }
+      P.i=save;
+    }
+    if(isIdStart(c)){
+      const save=P.i;
+      const id=readIdent();
+      skipWs();
+      if(P.src[P.i]==='='&&P.src[P.i+1]==='>'){
+        P.i+=2;
+        return {type:'__lambda',params:[id],body:parseValue()};
+      }
+      P.i=save;
+    }
+    const id=readDotted();
+    if(id==='true')return true;
+    if(id==='false')return false;
+    if(id==='null')return null;
+    skipWs();
+    if(P.src[P.i]==='('){
+      return parseWidget(id);
+    }
+    if(id==='Theme.of'||id.startsWith('Theme.of')){
+      if(P.src[P.i]==='(')readParenContent();
+      skipWs();
+      if(P.src[P.i]==='.'){
+        P.i++;
+        const prop=readIdent();
+        return 'Theme.of.'+prop;
+      }
+      return 'Theme.of';
+    }
+    return id;
+  }
+
+  function parseList(){
+    P.i++;
+    const arr=[];
+    skipWs();
+    while(P.i<P.L&&P.src[P.i]!==']'){
+      skipWs();
+      if(wordIs('if'))arr.push(parseIfExpr());
+      else if(wordIs('for'))arr.push(parseForExpr());
+      else if(P.src.slice(P.i,P.i+3)==='...'){
+        P.i+=3;
+        arr.push({type:'__spread',expr:parseValue()});
+      }
+      else arr.push(parseValue());
+      skipWs();
+      if(P.src[P.i]===','){P.i++;skipWs()}
+    }
+    if(P.src[P.i]===']')P.i++;
+    return arr;
+  }
+
+  function parseObj(){
+    P.i++;
+    const o={};
+    skipWs();
+    while(P.i<P.L&&P.src[P.i]!=='}'){
+      skipWs();
+      let k;
+      if(P.src[P.i]==='"'||P.src[P.i]==="'")k=readString();
+      else k=readIdent();
+      skipWs();
+      if(P.src[P.i]===':')P.i++;
+      o[k]=parseValue();
+      skipWs();
+      if(P.src[P.i]===','){P.i++;skipWs()}
+    }
+    if(P.src[P.i]==='}')P.i++;
+    return o;
+  }
+
+  function parseIfExpr(){
+    consumeWord();
+    skipWs();
+    const cond=readParenContent();
+    skipWs();
+    const thenB=parseValue();
+    skipWs();
+    let elseB=null;
+    if(wordIs('else')){
+      consumeWord();
+      skipWs();
+      if(wordIs('if'))elseB=parseIfExpr();
+      else elseB=parseValue();
+    }
+    return {type:'__if',cond,then:thenB,else:elseB};
+  }
+
+  function parseForExpr(){
+    consumeWord();
+    skipWs();
+    const clause=readParenContent();
+    skipWs();
+    const body=parseValue();
+    if(/\sin\s/.test(clause)){
+      const parts=clause.split(/\s+in\s+/);
+      const vn=parts[0].replace(/^(var|final|const)\s+/,'').trim();
+      return {type:'__forin',varName:vn,iterExpr:parts[1],body};
+    }
+    const p=clause.split(';').map(s=>s.trim());
+    if(p.length===3){
+      const im=p[0].match(/(\w+)\s*=\s*(.+)/);
+      const um=p[2].match(/(\w+)\s*(\+\+|--|\+=|-=|=)\s*(.*)/);
+      return {
+        type:'__for',
+        initVar:im?im[1]:'i',
+        initExpr:im?im[2]:'0',
+        cond:p[1],
+        update:um?{varName:um[1],op:um[2],val:um[3]||'1'}:null,
+        body
+      };
+    }
+    return {type:'__forin',varName:'x',iterExpr:'[]',body};
+  }
+
+  function parseWidget(type){
+    P.i++;
+    const node={type,args:{},pos:[]};
+    skipWs();
+    while(P.i<P.L&&P.src[P.i]!==')'){
+      skipWs();
+      const save=P.i;
+      const id=readIdent();
+      skipWs();
+      if(P.src[P.i]===':'){
+        P.i++;
+        node.args[id]=parseValue();
+      } else {
+        P.i=save;
+        node.pos.push(parseValue());
+      }
+      skipWs();
+      if(P.src[P.i]===','){P.i++;skipWs()}
+    }
+    if(P.src[P.i]===')')P.i++;
+    return node;
+  }
+
+  function handleMethodBody(cls,name,bodyStr){
+    if(name==='build'){
+      const retIdx=bodyStr.search(/\breturn\b/);
+      if(retIdx!==-1){
+        const sub=parseProgram(bodyStr.slice(retIdx+6));
+        if(sub.widget)cls.buildBody=sub.widget;
+      }
+    } else {
+      cls.methods[name]={statements:parseStatements(bodyStr),bodyStr};
+    }
+  }
+
+  function parseStatements(bodySrc){
+    const stmts=[];
+    const lines=bodySrc.split(/[;\n]/);
+    for(const line of lines){
+      const s=line.trim();
+      if(!s)continue;
+      const ss=s.match(/setState\s*\(\s*\(\s*\)\s*\{([\s\S]*)\}\s*\)/);
+      if(ss){
+        stmts.push(...parseStatements(ss[1]));
+        continue;
+      }
+      let m=s.match(/^(\w+)\s*\+\+$/);
+      if(m){stmts.push({type:'unary',field:m[1],op:'++'});continue}
+      m=s.match(/^(\w+)\s*--$/);
+      if(m){stmts.push({type:'unary',field:m[1],op:'--'});continue}
+      m=s.match(/^(\w+)\s*([+\-]?=)\s*(.+)$/);
+      if(m){stmts.push({type:'assign',field:m[1],op:m[2],expr:m[3].trim()});continue}
+    }
+    return stmts;
+  }
+
+  function parseClassBody(className,extendsName){
+    const cls={
+      name:className,
+      extends:extendsName,
+      isStatelessWidget:extendsName==='StatelessWidget',
+      isStatefulWidget:extendsName==='StatefulWidget',
+      isState:extendsName==='State',
+      stateClassName:null,
+      fields:[],
+      methods:{},
+      buildBody:null
+    };
+    P.i++;
+    let depth=1;
+    while(P.i<P.L&&depth>0){
+      skipWs();
+      if(P.i>=P.L)break;
+      if(P.src[P.i]==='}'){depth--;if(depth===0){P.i++;break}P.i++;continue}
+      if(P.src[P.i]==='@'){while(P.i<P.L&&P.src[P.i]!=='\n')P.i++;continue}
+      while(wordIs('final')||wordIs('static')||wordIs('const')||wordIs('late')||wordIs('var')){
+        consumeWord();
+        skipWs();
+      }
+      const s1=P.i;
+      if(!isIdStart(P.src[P.i])){P.i++;continue}
+      const w1=readIdent();
+      skipWs();
+      if(P.src[P.i]==='<'){
+        let gd=0;
+        while(P.i<P.L){
+          if(P.src[P.i]==='<')gd++;
+          else if(P.src[P.i]==='>'){gd--;if(gd===0){P.i++;break}}
+          P.i++;
+        }
+        skipWs();
+      }
+      if(P.src[P.i]==='('){
+        if(w1===className){
+          const args=readParenContent();
+          const selfs=args.match(/this\.(\w+)/g)||[];
+          selfs.forEach(f=>{
+            const n=f.slice(5);
+            if(!cls.fields.find(x=>x.name===n))cls.fields.push({name:n,init:null});
+          });
+          skipWs();
+          if(P.src[P.i]==='{')skipBlock();
+          else if(P.src[P.i]===';')P.i++;
+          continue;
+        }
+        const args=readParenContent();
+        skipWs();
+        if(wordIs('async')){consumeWord();skipWs()}
+        if(P.src[P.i]==='{'){
+          const bs=P.i+1;
+          skipBlock();
+          handleMethodBody(cls,w1,P.src.slice(bs,P.i-1));
+          continue;
+        }
+        if(P.src[P.i]==='='&&P.src[P.i+1]==='>'){
+          P.i+=2;
+          const body=parseValue();
+          if(w1==='build')cls.buildBody=body;
+          else cls.methods[w1]={statements:[]};
+          skipWs();
+          if(P.src[P.i]===';')P.i++;
+          continue;
+        }
+        if(P.src[P.i]===';')P.i++;
+        cls.methods[w1]={statements:[]};
+        continue;
+      }
+      if(!isIdStart(P.src[P.i])){
+        while(P.i<P.L&&P.src[P.i]!==';'&&P.src[P.i]!=='}')P.i++;
+        if(P.src[P.i]===';')P.i++;
+        continue;
+      }
+      const w2=readIdent();
+      skipWs();
+      if(P.src[P.i]==='<'){
+        let gd=0;
+        while(P.i<P.L){
+          if(P.src[P.i]==='<')gd++;
+          else if(P.src[P.i]==='>'){gd--;if(gd===0){P.i++;break}}
+          P.i++;
+        }
+        skipWs();
+      }
+      if(P.src[P.i]==='('){
+        const args=readParenContent();
+        skipWs();
+        if(wordIs('async')){consumeWord();skipWs()}
+        if(P.src[P.i]==='{'){
+          const bs=P.i+1;
+          skipBlock();
+          handleMethodBody(cls,w2,P.src.slice(bs,P.i-1));
+          continue;
+        }
+        if(P.src[P.i]==='='&&P.src[P.i+1]==='>'){
+          P.i+=2;
+          const body=parseValue();
+          if(w2==='build')cls.buildBody=body;
+          else cls.methods[w2]={statements:[]};
+          skipWs();
+          if(P.src[P.i]===';')P.i++;
+          continue;
+        }
+        if(P.src[P.i]===';')P.i++;
+        cls.methods[w2]={statements:[]};
+        continue;
+      }
+      let init=null;
+      if(P.src[P.i]==='='){
+        P.i++;
+        init=parseValue();
+      }
+      skipWs();
+      if(P.src[P.i]===';')P.i++;
+      if(!cls.fields.find(f=>f.name===w2))cls.fields.push({name:w2,init});
+    }
+    return cls;
+  }
+
+  function parseClass(){
+    consumeWord();
+    skipWs();
+    const name=readIdent();
+    skipWs();
+    let extendsName='';
+    let stateWidgetName=null;
+    if(wordIs('extends')){
+      consumeWord();
+      skipWs();
+      extendsName=readIdent();
+      skipWs();
+      if(P.src[P.i]==='<'){
+        P.i++;
+        stateWidgetName=readIdent();
+        skipWs();
+        if(P.src[P.i]==='>')P.i++;
+      }
+    }
+    while(wordIs('with')||wordIs('implements')||wordIs('mixin')){
+      consumeWord();
+      skipWs();
+      readIdent();
+      skipWs();
+    }
+    skipWs();
+    if(P.src[P.i]!=='{')return;
+    const cls=parseClassBody(name,extendsName);
+    if(extendsName==='State'&&stateWidgetName)cls.stateClassName=stateWidgetName;
+    classes[name]=cls;
+  }
+
+  while(P.i<P.L){
+    skipWs();
+    if(P.i>=P.L)break;
+
+    if(wordIs('import')){
+      consumeWord();
+      skipWs();
+      if(P.src[P.i]==='"'||P.src[P.i]==="'")imports.push(readString());
+      skipWs();
+      if(P.src[P.i]===';')P.i++;
+      continue;
+    }
+
+    if(wordIs('library')||wordIs('part')||wordIs('export')){
+      while(P.i<P.L&&P.src[P.i]!==';')P.i++;
+      if(P.src[P.i]===';')P.i++;
+      continue;
+    }
+
+    if(wordIs('class')){
+      parseClass();
+      continue;
+    }
+
+    if(wordIs('const')||wordIs('final')){
+      consumeWord();
+      skipWs();
+      const name=readIdent();
+      skipWs();
+      if(P.src[P.i]==='=')P.i++;
+      const val=parseValue();
+      skipWs();
+      if(P.src[P.i]===';')P.i++;
+      vars[name]=val;
+      continue;
+    }
+
+    if(isIdStart(P.src[P.i])){
+      const save=P.i;
+      const w1=readIdent();
+      skipWs();
+      if(P.src[P.i]==='<'){
+        let gd=0;
+        P.i++;gd=1;
+        while(P.i<P.L&&gd>0){
+          if(P.src[P.i]==='<')gd++;
+          else if(P.src[P.i]==='>'){gd--;if(gd===0)break}
+          P.i++;
+        }
+        if(P.src[P.i]==='>')P.i++;
+        skipWs();
+      }
+      if(isIdStart(P.src[P.i])){
+        const w2=readIdent();
+        skipWs();
+        if(P.src[P.i]==='<'){
+          P.i++;
+          let gd=1;
+          while(P.i<P.L&&gd>0){
+            if(P.src[P.i]==='<')gd++;
+            else if(P.src[P.i]==='>'){gd--;if(gd===0)break}
+            P.i++;
+          }
+          if(P.src[P.i]==='>')P.i++;
+          skipWs();
+        }
+        if(P.src[P.i]==='('){
+          readParenContent();
+          skipWs();
+          if(wordIs('async')){consumeWord();skipWs()}
+          if(P.src[P.i]==='='&&P.src[P.i+1]==='>'){
+            P.i+=2;
+            const ret=parseValue();
+            if(w2==='build'&&ret&&typeof ret==='object'&&ret.type&&!ret.type.startsWith('__'))widget=ret;
+            skipWs();
+            if(P.src[P.i]===';')P.i++;
+            continue;
+          }
+          if(P.src[P.i]==='{'){
+            const bs=P.i+1;
+            skipBlock();
+            const bodyStr=P.src.slice(bs,P.i-1);
+            if(w2==='build'){
+              const retIdx=bodyStr.search(/\breturn\b/);
+              if(retIdx!==-1){
+                const sub=parseProgram(bodyStr.slice(retIdx+6));
+                if(sub.widget)widget=sub.widget;
+              }
+            }
+            continue;
+          }
+          if(P.src[P.i]===';')P.i++;
+          continue;
+        }
+      }
+      P.i=save;
+    }
+
+    const val=parseValue();
+    skipWs();
+    if(P.src[P.i]===';')P.i++;
+    if(val&&typeof val==='object'&&val.type&&!val.type.startsWith('__')&&val.type!=='__lambda'){
+      widget=val;
+    }
+  }
+
+  return {vars,classes,imports,widget};
+}
+
+/* ============================================================
+   8) STATE METODU Ã‡ALIÅTIRMA
+   ============================================================ */
+function runStatements(stmts,inst){
+  if(!stmts||!inst)return;
+  stmts.forEach(s=>{
+    if(s.type==='unary'){
+      const cur=inst.fields[s.field];
+      const num=typeof cur==='number'?cur:0;
+      if(s.op==='++')inst.fields[s.field]=num+1;
+      else if(s.op==='--')inst.fields[s.field]=num-1;
+    } else if(s.type==='assign'){
+      pushEnv(inst.fields);
+      let val;
+      try{val=evalStr(s.expr)}finally{popEnv()}
+      const cur=inst.fields[s.field];
+      if(s.op==='=')inst.fields[s.field]=val==null?0:val;
+      else if(s.op==='+=')inst.fields[s.field]=(typeof cur==='number'?cur:0)+(typeof val==='number'?val:0);
+      else if(s.op==='-=')inst.fields[s.field]=(typeof cur==='number'?cur:0)-(typeof val==='number'?val:0);
+    }
+  });
+}
+
+/* ============================================================
+   9) ANÄ°MASYON
+   ============================================================ */
+function getAnimController(name,duration,initialValue){
+  if(ANIM[name])return ANIM[name];
+  const ctrl={
+    name,
+    duration:duration||1000,
+    value:initialValue||0,
+    _running:false,
+    _startTime:0,
+    _startValue:0,
+    _endValue:0,
+    forward(){
+      this._running=true;
+      this._startTime=performance.now();
+      this._startValue=this.value;
+      this._endValue=1;
+      tickAnimation();
+    },
+    reverse(){
+      this._running=true;
+      this._startTime=performance.now();
+      this._startValue=this.value;
+      this._endValue=0;
+      tickAnimation();
+    },
+    reset(){
+      this._running=false;
+      this.value=initialValue||0;
+      paint();
+    },
+    stop(){this._running=false}
+  };
+  ANIM[name]=ctrl;
+  return ctrl;
+}
+
+function tickAnimation(){
+  let anyRunning=false;
+  for(const name in ANIM){
+    const ctrl=ANIM[name];
+    if(ctrl._running){
+      const elapsed=performance.now()-ctrl._startTime;
+      const t=Math.min(1,elapsed/ctrl.duration);
+      ctrl.value=ctrl._startValue+(ctrl._endValue-ctrl._startValue)*t;
+      if(t>=1)ctrl._running=false;
+      else anyRunning=true;
+    }
+  }
+  if(anyRunning){
+    paint();
+    requestAnimationFrame(tickAnimation);
+  } else {
+    paint();
+  }
+}
+
+/* ============================================================
+   10) RENDER
+   ============================================================ */
+function render(node){
+  if(node===null||node===undefined)return '';
+  if(typeof node==='string')return esc(interp(node));
+  if(typeof node==='number')return String(node);
+  if(typeof node==='boolean')return String(node);
+  if(Array.isArray(node))return node.map(render).join('');
+  if(node.type==='__lambda')return '';
+  if(node.type==='__if'){
+    let c;
+    pushEnv({});
+    try{c=evalStr(node.cond)}finally{popEnv()}
+    if(c)return render(node.then);
+    if(node.else!==null&&node.else!==undefined)return render(node.else);
+    return '';
+  }
+  if(node.type==='__for')return renderFor(node);
+  if(node.type==='__forin')return renderForIn(node);
+  if(node.type==='__spread'){
+    const v=evalStr(node.expr);
+    if(Array.isArray(v))return v.map(render).join('');
+    return '';
+  }
+  if(node.type)return renderWidget(node);
+  return '';
+}
+
+function renderFor(node){
+  const env={};
+  env[node.initVar]=evalStr(node.initExpr)||0;
+  pushEnv(env);
+  let html='',iter=0;
+  try{
+    let cond;
+    try{cond=evalStr(node.cond)}catch(e){cond=false}
+    while(cond&&iter<500){
+      html+=render(node.body);
+      if(node.update){
+        const cur=env[node.update.varName]||0;
+        if(node.update.op==='++')env[node.update.varName]=cur+1;
+        else if(node.update.op==='--')env[node.update.varName]=cur-1;
+        else if(node.update.op==='+=')env[node.update.varName]=cur+(evalStr(node.update.val)||0);
+        else if(node.update.op==='-=')env[node.update.varName]=cur-(evalStr(node.update.val)||0);
+        else if(node.update.op==='=')env[node.update.varName]=evalStr(node.update.val);
+      }
+      iter++;
+      try{cond=evalStr(node.cond)}catch(e){cond=false}
+    }
+  } finally { popEnv() }
+  return html;
+}
+
+function renderForIn(node){
+  const arr=evalStr(node.iterExpr);
+  if(!Array.isArray(arr))return '';
+  let html='';
+  for(const item of arr){
+    pushEnv({[node.varName]:item});
+    try{html+=render(node.body)}finally{popEnv()}
+  }
+  return html;
+}
+
+function renderWidget(node){
+  const cls=PROGRAM.classes[node.type];
+  if(cls){
+    if(cls.isState)return '';
+    if(cls.isStatefulWidget){
+      let stateCls=null;
+      for(const cn in PROGRAM.classes){
+        const c=PROGRAM.classes[cn];
+        if(c.isState&&(c.stateClassName===node.type||cn.includes(node.type))){
+          stateCls=c;
+          break;
+        }
+      }
+      if(!stateCls)return '<div class="f-unknown">âš ï¸ '+esc(node.type)+': State sÄ±nÄ±fÄ± yok</div>';
+      let inst=STATEFUL_INSTANCES[node.type];
+      if(!inst){
+        const fields={};
+        for(const f of stateCls.fields){
+          if(f.init!=null){
+            pushEnv({});
+            try{fields[f.name]=evalStr(typeof f.init==='string'?f.init:String(f.init))}finally{popEnv()}
+            if(fields[f.name]===undefined)fields[f.name]=f.init;
+          } else {
+            fields[f.name]=null;
+          }
+        }
+        inst={fields,stateClass:stateCls,widgetArgs:{}};
+        STATEFUL_INSTANCES[node.type]=inst;
+        if(stateCls.methods['initState']){
+          runStatements(stateCls.methods['initState'].statements,inst);
+        }
+      }
+      const env={};
+      for(const k in inst.fields)env[k]=inst.fields[k];
+      env.__inst=inst;
+      env.__widget={};
+      for(const k in node.args)env.__widget[k]=node.args[k];
+      pushEnv(env);
+      try{
+        return stateCls.buildBody?render(stateCls.buildBody):'';
+      } finally { popEnv() }
+    }
+    const env={};
+    for(const k in node.args)env[k]=node.args[k];
+    node.pos.forEach((v,idx)=>{env['_'+idx]=v});
+    pushEnv(env);
+    try{
+      return cls.buildBody?render(cls.buildBody):'';
+    } finally { popEnv() }
+  }
+  const W=WIDGETS[node.type];
+  if(!W)return '<div class="f-unknown">âš ï¸ Bilinmeyen: <b>'+esc(node.type)+'</b></div>';
+  try{return W(node)}
+  catch(e){return '<div class="f-unknown">âš ï¸ '+esc(node.type)+': '+esc(e.message)+'</div>'}
+}
+
+/* ============================================================
+   11) WIDGET TANIMLARI
+   ============================================================ */
+const WIDGETS={
+  MaterialApp:n=>{
+    const ta=n.args.theme;
+    if(ta==='dark')STATE.theme='dark';
+    else if(ta==='light')STATE.theme='light';
+    const stack=STATE.navigator.stack;
+    const cur=stack[stack.length-1];
+    let screen;
+    if(cur==='/'&&n.args.home)screen=n.args.home;
+    else if(n.args.routes&&n.args.routes[cur])screen=n.args.routes[cur];
+    else if(n.args.home)screen=n.args.home;
+    else screen={type:'unknown',pos:['MaterialApp: home gerekli']};
+    const anim=STATE.navigator.direction==='pop'?'slideInLeft':'slideInRight';
+    STATE.navigator.direction='none';
+    return '<div style="height:100%;animation:'+anim+' .25s ease-out">'+render(screen)+'</div>';
+  },
+  DefaultTabController:n=>render(n.args.child||n.pos[0]),
+  Navigator:n=>render(n.args.child||n.pos[0]),
+
+  Scaffold:n=>{
+    const appBar=n.args.appBar?render(n.args.appBar):'';
+    const body=n.args.body?render(n.args.body):'';
+    const bg=resolveColor(n.args.backgroundColor,'var(--bg)');
+    const fab=n.args.floatingActionButton?render(n.args.floatingActionButton):'';
+    const bnav=n.args.bottomNavigationBar?render(n.args.bottomNavigationBar):'';
+    const drawer=n.args.drawer?render(n.args.drawer):'';
+    return '<div class="f-scaffold" style="background:'+bg+'">'+appBar+'<div class="f-body">'+body+'</div>'+fab+bnav+drawer+'</div>';
+  },
+
+  AppBar:n=>{
+    const title=n.args.title?render(n.args.title):'';
+    const bg=resolveColor(n.args.backgroundColor,'#2196F3');
+    const fg=resolveColor(n.args.foregroundColor,'#fff');
+    const canPop=STATE.navigator.stack.length>1;
+    const hasDrawer=n.args.leading!==undefined||STATE.hasDrawer;
+    const lead=canPop?'<span class="back" onclick="window.__press(\'pop\')">â†</span>'
+      :(hasDrawer?'<span class="menu-btn" onclick="window.__press(\'toggleDrawer\')">â˜°</span>':'');
+    const actions=Array.isArray(n.args.actions)?n.args.actions.map(render).join(''):'';
+    return '<div class="f-appbar" style="background:'+bg+';color:'+fg+'">'+lead+'<span class="title">'+title+'</span>'+actions+'</div>';
+  },
+
+  Drawer:n=>{
+    STATE.hasDrawer=true;
+    if(!STATE.drawer.open)return '';
+    return '<div class="f-drawer-backdrop" onclick="window.__press(\'closeDrawer\')"></div><div class="f-drawer">'+(n.args.child?render(n.args.child):'')+'</div>';
+  },
+
+  UserAccountsDrawerHeader:n=>{
+    const name=n.args.name?render(n.args.name):'';
+    const email=n.args.email?render(n.args.email):'';
+    const bg=resolveColor(n.args.backgroundColor,'#2196F3');
+    return '<div style="background:'+bg+';color:#fff;padding:24px 16px"><div style="display:flex;align-items:center;gap:12px"><div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:600">AY</div><div><div style="font-weight:600">'+name+'</div><div style="font-size:12px;opacity:.9">'+email+'</div></div></div></div>';
+  },
+
+  ListTile:n=>{
+    const l=n.args.leading?render(n.args.leading):'';
+    const t=n.args.title?render(n.args.title):'';
+    const s=n.args.subtitle?render(n.args.subtitle):'';
+    const tr=n.args.trailing?render(n.args.trailing):'';
+    const cmd=n.args.onTap;
+    const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+    return '<div style="display:flex;align-items:center;gap:16px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border)" '+h+'>'+(l?'<div>'+l+'</div>':'')+'<div style="flex:1"><div style="font-size:14px;color:var(--fg)">'+t+'</div>'+(s?'<div style="font-size:12px;color:var(--subtle);margin-top:2px">'+s+'</div>':'')+'</div>'+tr+'</div>';
+  },
+
+  Center:n=>'<div class="f-center">'+render(n.args.child||n.pos[0])+'</div>',
+
+  Column:n=>{
+    const c=n.args.children||n.pos[0]||[];
+    const m=flexAlign(n.args.mainAxisAlignment,'flex-start');
+    const cr=crossAlign(n.args.crossAxisAlignment,'center');
+    const g=n.args.spacing?'gap:'+px(n.args.spacing)+';':'';
+    return '<div class="f-column" style="justify-content:'+m+';align-items:'+cr+';'+g+'">'+(Array.isArray(c)?c:[c]).map(render).join('')+'</div>';
+  },
+
+  Row:n=>{
+    const c=n.args.children||n.pos[0]||[];
+    const m=flexAlign(n.args.mainAxisAlignment,'flex-start');
+    const cr=crossAlign(n.args.crossAxisAlignment,'center');
+    const g=n.args.spacing?'gap:'+px(n.args.spacing)+';':'';
+    return '<div class="f-row" style="justify-content:'+m+';align-items:'+cr+';'+g+'">'+(Array.isArray(c)?c:[c]).map(render).join('')+'</div>';
+  },
+
+  Container:n=>{
+    const w=px(n.args.width,'auto'),h=px(n.args.height,'auto');
+    const bg=resolveColor(n.args.color,'transparent');
+    const br=n.args.borderRadius?'border-radius:'+px(n.args.borderRadius)+';':'';
+    const al=n.args.alignment?'display:flex;align-items:center;justify-content:center;':'';
+    const p=n.args.padding?'padding:'+px(n.args.padding,'0')+';':'';
+    const m=n.args.margin?'margin:'+px(n.args.margin,'0')+';':'';
+    return '<div style="width:'+w+';height:'+h+';background:'+bg+';'+br+al+p+m+'">'+render(n.args.child||n.pos[0])+'</div>';
+  },
+
+  AnimatedContainer:n=>{
+    const dur=n.args.duration||300;
+    const w=px(n.args.width,'auto'),h=px(n.args.height,'auto');
+    const bg=resolveColor(n.args.color,'transparent');
+    const br=n.args.borderRadius?'border-radius:'+px(n.args.borderRadius)+';':'';
+    return '<div style="width:'+w+';height:'+h+';background:'+bg+';'+br+'transition:all '+dur+'ms ease-in-out">'+render(n.args.child||n.pos[0])+'</div>';
+  },
+
+  Padding:n=>'<div style="padding:'+px(n.args.padding||n.pos[0],'8px')+'">'+render(n.args.child||n.pos[1])+'</div>',
+
+  SizedBox:n=>{
+    const w=n.args.width!==undefined?px(n.args.width):'0';
+    const h=n.args.height!==undefined?px(n.args.height):'0';
+    const c=n.args.child?render(n.args.child):'';
+    return c?'<div style="width:'+w+';height:'+h+'">'+c+'</div>':'<div style="width:'+w+';height:'+h+';flex-shrink:0"></div>';
+  },
+
+  Expanded:n=>'<div class="f-expanded" style="flex:'+(n.args.flex||1)+'">'+render(n.args.child||n.pos[0])+'</div>',
+  Spacer:()=>'<div style="flex:1"></div>',
+  Card:n=>'<div class="f-card">'+render(n.args.child||n.pos[0])+'</div>',
+  Divider:()=>'<div class="f-divider"></div>',
+
+  ListView:n=>{
+    const c=n.args.children||n.pos[0]||[];
+    return '<div style="display:flex;flex-direction:column;gap:4px;padding:4px">'+(Array.isArray(c)?c:[c]).map(render).join('')+'</div>';
+  },
+
+  'ListView.builder':n=>{
+    const cnt=parseInt(evalStr(String(n.args.itemCount||0)))||0;
+    const b=n.args.itemBuilder;
+    if(!b||b.type!=='__lambda')return '<div class="f-unknown">âš ï¸ ListView.builder: itemBuilder lambda gerekli</div>';
+    let html='<div style="display:flex;flex-direction:column;gap:4px;padding:4px">';
+    for(let k=0;k<cnt;k++){
+      const env={};
+      b.params.forEach((p,idx)=>{env[p]=idx===b.params.length-1?k:null});
+      pushEnv(env);
+      try{html+=render(b.body)}finally{popEnv()}
+    }
+    return html+'</div>';
+  },
+
+  Hero:n=>{
+    const tag=interp(String(n.args.tag||''));
+    const c=n.args.child?render(n.args.child):'';
+    return '<div class="f-hero" data-hero="'+escAttr(tag)+'">'+c+'</div>';
+  },
+
+  AnimationController:n=>{
+    const name=interp(String(n.args.name||'anim'));
+    const dur=parseInt(evalStr(String(n.args.duration||1000)))||1000;
+    const val=parseFloat(evalStr(String(n.args.value||0)))||0;
+    getAnimController(name,dur,val);
+    return '';
+  },
+
+  AnimatedBuilder:n=>{
+    const animName=interp(String(n.args.animation||''));
+    const ctrl=ANIM[animName];
+    const builder=n.args.builder;
+    if(!builder||builder.type!=='__lambda')return '';
+    const env={};
+    const animObj=ctrl||{value:0};
+    builder.params.forEach((p,i)=>{
+      if(i===0)env[p]={};
+      else env[p]=animObj;
+    });
+    pushEnv(env);
+    try{return render(builder.body)}finally{popEnv()}
+  },
+
+  AsyncBuilder:n=>{
+    const key='async_'+(++ASYNC_ID_STORE.async_counter);
+    if(!n.__aid)n.__aid='a_'+key;
+    const id=n.__aid;
+    const delay=n.args.delay||1500;
+    const value=n.args.value!==undefined?n.args.value:(n.args.data!==undefined?n.args.data:'');
+    const builder=n.args.builder;
+    if(!builder||builder.type!=='__lambda')return '<div class="f-unknown">âš ï¸ AsyncBuilder: builder lambda</div>';
+    if(!STATE.async[id]){
+      STATE.async[id]={loading:true,data:null,error:null};
+      const cid=id;
+      const cval=interp(String(value));
+      setTimeout(()=>{
+        STATE.async[cid]={loading:false,data:cval,error:null};
+        paint();
+      },delay);
+    }
+    const st=STATE.async[id];
+    const snap={
+      loading:st.loading,
+      hasData:!st.loading&&st.data!==null,
+      hasError:!!st.error,
+      data:st.data,
+      error:st.error
+    };
+    const env={};
+    builder.params.forEach((p,i)=>{
+      if(i===0)env[p]={};
+      else env[p]=snap;
+    });
+    pushEnv(env);
+    try{return render(builder.body)}finally{popEnv()}
+  },
+  FutureBuilder:n=>WIDGETS.AsyncBuilder(n),
+
+  TabBar:n=>{
+    const key=n.args.key||'default';
+    const tabs=n.args.tabs||n.pos[0]||[];
+    const active=STATE.tabs[key]!==undefined?STATE.tabs[key]:(n.args.currentIndex||0);
+    const bg=resolveColor(n.args.backgroundColor,'var(--surface)');
+    const ac=resolveColor(n.args.color,'#2196F3');
+    return '<div style="display:flex;background:'+bg+';border-bottom:1px solid var(--border);height:48px;flex-shrink:0">'+tabs.map((t,i)=>{
+      const label=typeof t==='string'?t:((t.args&&(t.args.label||t.args.text))||'');
+      const isA=i===active;
+      const color=isA?ac:'var(--subtle)';
+      const bd=isA?'border-bottom:2px solid '+ac+';':'';
+      return '<div style="flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;color:'+color+';'+bd+'font-size:14px;font-weight:500" onclick="window.__press(\'tab:'+escAttr(key)+':'+i+'\')">'+esc(label)+'</div>';
+    }).join('')+'</div>';
+  },
+
+  TabBarView:n=>{
+    const key=n.args.key||'default';
+    const c=n.args.children||n.pos[0]||[];
+    const a=STATE.tabs[key]!==undefined?STATE.tabs[key]:0;
+    const ch=Array.isArray(c)?c[a]:null;
+    return '<div style="flex:1;overflow:auto;min-height:0">'+(ch?render(ch):'')+'</div>';
+  },
+
+  Stack:n=>{
+    const raw=n.args.children||n.pos[0]||[];
+    const arr=Array.isArray(raw)?raw:[raw];
+    const ak=String(n.args.alignment||'Alignment.topLeft');
+    const mp={
+      'Alignment.topLeft':['flex-start','flex-start'],
+      'Alignment.topCenter':['flex-start','center'],
+      'Alignment.topRight':['flex-start','flex-end'],
+      'Alignment.centerLeft':['center','flex-start'],
+      'Alignment.center':['center','center'],
+      'Alignment.centerRight':['center','flex-end'],
+      'Alignment.bottomLeft':['flex-end','flex-start'],
+      'Alignment.bottomCenter':['flex-end','center'],
+      'Alignment.bottomRight':['flex-end','flex-end']
+    };
+    const am=mp[ak]||mp['Alignment.topLeft'];
+    const nml=arr.filter(c=>!(c&&c.type==='Positioned'));
+    const ps=arr.filter(c=>c&&c.type==='Positioned');
+    const nh=nml.length?'<div style="display:grid;grid-template-columns:100%;grid-template-rows:100%">'+nml.map(c=>'<div style="grid-row:1;grid-column:1;display:flex;align-items:'+am[0]+';justify-content:'+am[1]+'">'+render(c)+'</div>').join('')+'</div>':'';
+    const ph=ps.map(c=>{
+      const p=c.args;
+      let s='position:absolute;';
+      if(p.top!==undefined)s+='top:'+px(p.top)+';';
+      if(p.bottom!==undefined)s+='bottom:'+px(p.bottom)+';';
+      if(p.left!==undefined)s+='left:'+px(p.left)+';';
+      if(p.right!==undefined)s+='right:'+px(p.right)+';';
+      return '<div style="'+s+'">'+render(c.args.child||c.pos[0])+'</div>';
+    }).join('');
+    return '<div style="position:relative;'+(nml.length?'':'min-height:120px;')+'">'+nh+ph+'</div>';
+  },
+  Positioned:n=>render(n.args.child||n.pos[0]),
+
+  GridView:n=>{
+    const c=n.args.children||n.pos[0]||[];
+    const cols=n.args.crossAxisCount||2;
+    const g=px(n.args.spacing||8);
+    return '<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:'+g+';padding:8px">'+(Array.isArray(c)?c:[c]).map(render).join('')+'</div>';
+  },
+
+  Wrap:n=>{
+    const c=n.args.children||n.pos[0]||[];
+    const g=px(n.args.spacing||6);
+    const a=flexAlign(n.args.alignment,'flex-start');
+    return '<div style="display:flex;flex-wrap:wrap;gap:'+g+';justify-content:'+a+';padding:4px">'+(Array.isArray(c)?c:[c]).map(render).join('')+'</div>';
+  },
+
+  BottomNavigationBar:n=>{
+    const items=n.args.items||n.pos[0]||[];
+    const key=n.args.key||'__main';
+    const active=STATE.bottomNav[key]!==undefined?STATE.bottomNav[key]:(n.args.currentIndex||0);
+    const bg=resolveColor(n.args.backgroundColor,'var(--surface)');
+    let html='<div style="display:flex;border-top:1px solid var(--border);background:'+bg+';height:56px;flex-shrink:0">';
+    items.forEach((it,idx)=>{
+      const ic=(it.args&&it.args.icon)||(it.pos&&it.pos[0])||'home';
+      const lb=(it.args&&it.args.label)||(it.pos&&it.pos[1])||'';
+      const color=idx===active?'#2196F3':'#757575';
+      const g=resolveIcon(ic);
+      html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:'+color+';font-size:11px;cursor:pointer" onclick="window.__press(\'nav:'+escAttr(key)+':'+idx+'\')"><span style="font-size:20px">'+(g==='FLUTTER_LOGO'?'âš¡':g)+'</span><span>'+esc(lb)+'</span></div>';
+    });
+    return html+'</div>';
+  },
+
+  Slider:n=>{
+    const key=n.args.key;
+    const min=n.args.min!==undefined?n.args.min:0;
+    const max=n.args.max!==undefined?n.args.max:100;
+    const def=(min+max)/2;
+    let val;
+    if(key&&STATE.sliders[key]!==undefined)val=STATE.sliders[key];
+    else if(n.args.value!==undefined)val=n.args.value;
+    else val=def;
+    const h=key?'oninput="window.__slider(\''+escAttr(key)+'\', this.value, this)"':'';
+    return '<div style="display:flex;align-items:center;gap:8px;width:100%"><input type="range" min="'+min+'" max="'+max+'" value="'+val+'" style="flex:1;accent-color:#2196F3" '+h+'><span class="slider-val" style="min-width:36px;text-align:right;font-size:13px;color:var(--subtle)">'+Math.round(val)+'</span></div>';
+  },
+
+  LinearProgressIndicator:n=>{
+    const v=n.args.value;
+    const color=resolveColor(n.args.color,'#2196F3');
+    const numericV=typeof v==='number'?v:(v===undefined?undefined:parseFloat(String(v)));
+    if(numericV===undefined||isNaN(numericV)){
+      return '<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="height:100%;width:40%;background:'+color+';animation:slideBar 1.5s ease-in-out infinite"></div></div>';
+    }
+    const pct=Math.max(0,Math.min(1,numericV))*100;
+    return '<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+color+';transition:width .15s"></div></div>';
+  },
+
+  CircularProgressIndicator:n=>{
+    const size=px(n.args.size||40);
+    const color=resolveColor(n.args.color,'#2196F3');
+    return '<div style="width:'+size+';height:'+size+';border:4px solid var(--border);border-top-color:'+color+';border-radius:50%;animation:spin 1s linear infinite"></div>';
+  },
+
+  Text:n=>{
+    const raw=n.args.data!==undefined?n.args.data:(n.args.text!==undefined?n.args.text:n.pos[0]);
+    let data;
+    if(typeof raw==='string'&&raw.startsWith('Theme.of.')){
+      data=getThemeColor(raw.slice(9));
+    } else {
+      data=interp(String(raw||''));
+    }
+    const size=n.args.size!==undefined?n.args.size:(n.args.fontSize!==undefined?n.args.fontSize:16);
+    const weight=n.args.weight!==undefined?n.args.weight:(n.args.fontWeight!==undefined?n.args.fontWeight:'normal');
+    const color=resolveColor(n.args.color,'var(--fg)');
+    const align=n.args.align!==undefined?n.args.align:(n.args.textAlign!==undefined?n.args.textAlign:'left');
+    const w=weight==='bold'?700:weight==='w600'?600:weight;
+    return '<div class="f-text" style="font-size:'+px(size)+';font-weight:'+w+';color:'+color+';text-align:'+String(align).replace('TextAlign.','')+'">'+esc(data)+'</div>';
+  },
+
+  'Text.rich':n=>{
+    const s=n.args.text||n.pos[0];
+    return s?'<div class="f-text">'+render(s)+'</div>':'';
+  },
+  RichText:n=>{
+    const s=n.args.text;
+    return s?'<div class="f-text">'+render(s)+'</div>':'';
+  },
+  TextStyle:n=>'',
+
+  TextSpan:n=>{
+    const text=n.args.text||'';
+    const style=n.args.style;
+    const ch=n.args.children||[];
+    let css='';
+    if(style&&style.type==='TextStyle'){
+      const s=style.args;
+      if(s.color)css+='color:'+resolveColor(s.color,'#000')+';';
+      if(s.fontSize||s.size)css+='font-size:'+px(s.fontSize||s.size)+';';
+      if(s.fontWeight||s.weight){
+        const w=s.fontWeight||s.weight;
+        css+='font-weight:'+(w==='bold'?700:w==='w600'?600:w)+';';
+      }
+      if(s.fontStyle==='italic')css+='font-style:italic;';
+    }
+    let html='';
+    if(text)html+='<span style="'+css+'">'+esc(interp(String(text)))+'</span>';
+    if(Array.isArray(ch))for(const c of ch)html+=render(c);
+    return html||'<span style="'+css+'"></span>';
+  },
+
+  Icon:n=>{
+    const name=n.args.icon!==undefined?n.args.icon:(n.pos[0]||'');
+    const size=n.args.size||24;
+    const color=resolveColor(n.args.color,'var(--fg)');
+    const icon=resolveIcon(name);
+    if(icon==='FLUTTER_LOGO')return '<span class="f-icon" style="width:'+px(size)+';height:'+px(size)+';display:inline-block">'+FLUTTER_LOGO_SVG+'</span>';
+    return '<span class="f-icon" style="font-size:'+px(size)+';color:'+color+'">'+icon+'</span>';
+  },
+
+  CircleAvatar:n=>{
+    const bg=resolveColor(n.args.backgroundColor,'#2196F3');
+    const size=px(n.args.radius?n.args.radius*2:n.args.size,'48px');
+    const c=n.args.child?render(n.args.child):(n.args.text?esc(interp(n.args.text)):'');
+    return '<div class="f-avatar" style="width:'+size+';height:'+size+';background:'+bg+';font-size:'+(parseInt(size)/2.4)+'px">'+c+'</div>';
+  },
+
+  Chip:n=>{
+    const lb=n.args.label!==undefined?n.args.label:n.pos[0];
+    return '<span class="f-chip">'+esc(interp(typeof lb==='string'?lb:String(lb||'')))+'</span>';
+  },
+  Badge:n=>{
+    const lb=n.args.label!==undefined?n.args.label:n.pos[0];
+    return '<span class="f-badge">'+esc(interp(lb||''))+'</span>';
+  },
+
+  ElevatedButton:n=>mkButton(n,'elevated'),
+  TextButton:n=>mkButton(n,'text'),
+  OutlinedButton:n=>mkButton(n,'outlined'),
+
+  IconButton:n=>{
+    const icon=n.args.icon!==undefined?n.args.icon:(n.pos[0]||'');
+    const color=resolveColor(n.args.color,'var(--fg)');
+    const cmd=n.args.onPressed;
+    const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+    const g=resolveIcon(icon);
+    return '<button class="f-btn text" style="color:'+color+';padding:8px;font-size:20px" '+h+'>'+(g==='FLUTTER_LOGO'?'âš¡':g)+'</button>';
+  },
+
+  FloatingActionButton:n=>{
+    const icon=n.args.icon!==undefined?n.args.icon:(n.pos[0]||'add');
+    const cmd=n.args.onPressed;
+    const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+    const g=resolveIcon(icon);
+    return '<button class="f-fab" '+h+'>'+(g==='FLUTTER_LOGO'?'+':g)+'</button>';
+  },
+
+  TextField:n=>{
+    const hint=n.args.hint!==undefined?n.args.hint:(n.args.label||'');
+    const key=n.args.key;
+    const val=key?(STATE.inputs[key]!==undefined?STATE.inputs[key]:''):(n.args.value||'');
+    const h=key?'oninput="window.__input(\''+escAttr(key)+'\', this.value)"':'';
+    return '<input class="f-textfield" placeholder="'+escAttr(hint)+'" value="'+escAttr(val)+'" '+h+'>';
+  },
+
+  Switch:n=>{
+    const key=n.args.key;
+    const val=key?!!STATE.toggles[key]:(n.args.value||false);
+    const cmd=key?'toggle:'+key:(n.args.onPressed||'');
+    const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+    return '<div class="f-switch '+(val?'on':'')+'" '+h+'><div class="knob"></div></div>';
+  },
+
+  Checkbox:n=>{
+    const key=n.args.key;
+    const val=key?!!STATE.toggles[key]:(n.args.value||false);
+    const cmd=key?'toggle:'+key:(n.args.onPressed||'');
+    const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+    const lb=n.args.label?esc(interp(n.args.label)):'';
+    return '<div style="display:inline-flex;align-items:center;gap:6px;cursor:pointer" '+h+'><input type="checkbox" '+(val?'checked':'')+' style="width:18px;height:18px;pointer-events:none">'+lb+'</div>';
+  },
+
+  GestureDetector:n=>{
+    const c=n.args.child?render(n.args.child):'';
+    const cmd=n.args.onTap;
+    const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+    const cur=cmd?'cursor:pointer;':'';
+    return '<div style="'+cur+'" '+h+'>'+c+'</div>';
+  },
+
+  InkWell:n=>{
+    const c=n.args.child?render(n.args.child):'';
+    const cmd=n.args.onTap;
+    const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+    const br=n.args.borderRadius?'border-radius:'+px(n.args.borderRadius)+';':'';
+    const cur=cmd?'cursor:pointer;':'';
+    return '<div class="f-ink" style="'+cur+br+'" '+h+'>'+c+'</div>';
+  }
+};
+
+function mkButton(n,variant){
+  let child=n.args.child,label=null;
+  if(!child&&n.pos.length){
+    const f=n.pos[0];
+    if(f&&typeof f==='object'&&f.type)child=f;
+    else label=f;
+  }
+  const inner=child?render(child):esc(interp(String(label!==null?label:(n.args.label||'Buton'))));
+  const bg=resolveColor(n.args.color,null);
+  const bgCss=bg&&variant==='elevated'?'background:'+bg+';':'';
+  const cmd=n.args.onPressed;
+  const h=cmd?'onclick="window.__press(\''+escAttr(cmd)+'\')"':'';
+  return '<button class="f-btn '+variant+'" style="'+bgCss+'" '+h+'>'+inner+'</button>';
+}
+
+function renderOverlay(o){
+  if(!o)return '';
+  if(o.type==='snackbar'){
+    const a=o.action?'<button style="background:none;border:0;color:#4fc3f7;font-weight:600;font-size:14px;cursor:pointer;padding:0 8px" onclick="window.__press(\'closeDialog\')">'+esc(o.action)+'</button>':'';
+    return '<div style="position:absolute;bottom:16px;left:16px;right:16px;background:#323232;color:#fff;padding:12px 16px;border-radius:6px;font-size:14px;z-index:100;animation:fadeUp .25s;display:flex;align-items:center;gap:8px"><span style="flex:1">'+esc(o.message)+'</span>'+a+'</div>';
+  }
+  if(o.type==='dialog'){
+    const c=o.cancelLabel?'<button class="f-btn text" style="color:var(--subtle)" onclick="window.__press(\'closeDialog\')">'+esc(o.cancelLabel)+'</button>':'';
+    return '<div style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:24px;z-index:200;animation:fadeIn .2s"><div style="background:var(--surface);border-radius:12px;padding:20px;max-width:320px;width:100%"><div style="font-size:18px;font-weight:600;margin-bottom:8px;color:var(--fg)">'+esc(o.title)+'</div><div style="font-size:14px;color:var(--subtle);margin-bottom:20px;line-height:1.4">'+esc(o.message)+'</div><div style="display:flex;justify-content:flex-end;gap:8px">'+c+'<button class="f-btn text" onclick="window.__press(\''+escAttr(o.confirmCmd)+'\')">'+esc(o.confirmLabel)+'</button></div></div></div>';
+  }
+  return '';
+}
+
+/* ============================================================
+   12) KOMUTLAR
+   ============================================================ */
+const BUILTIN_COMMANDS={
+  increment:()=>{STATE.counter++},
+  decrement:()=>{STATE.counter--},
+  reset:()=>{STATE.counter=0},
+  toggleDrawer:()=>{STATE.drawer.open=!STATE.drawer.open},
+  closeDrawer:()=>{STATE.drawer.open=false},
+  toggleTheme:()=>{STATE.theme=STATE.theme==='dark'?'light':'dark'},
+  setDark:()=>{STATE.theme='dark'},
+  setLight:()=>{STATE.theme='light'},
+  resetAsync:()=>{STATE.async={}},
+  prefsClear:()=>{Prefs.clear();showPrefsRefresh();showToast('ğŸ’¾ Prefs temizlendi')},
+  openSheet:()=>{STATE.sheet.open=true},
+  closeSheet:()=>{STATE.sheet.open=false}
+};
+
+function handlePress(cmd){
+  if(!cmd)return;
+  if(cmd.startsWith('toggle:')){
+    const k=cmd.slice(7);
+    STATE.toggles[k]=!STATE.toggles[k];
+    paint();return;
+  }
+  if(cmd.startsWith('nav:')){
+    const parts=cmd.split(':');
+    STATE.bottomNav[parts[1]]=parseInt(parts[2]);
+    paint();return;
+  }
+  if(cmd.startsWith('tab:')){
+    const parts=cmd.split(':');
+    STATE.tabs[parts[1]]=parseInt(parts[2]);
+    paint();return;
+  }
+  if(cmd.startsWith('push:')){
+    const snapshot=snapshotHeroes();
+    STATE.navigator.stack.push(cmd.slice(5));
+    STATE.navigator.direction='push';
+    paint({prevHeroes:snapshot});return;
+  }
+  if(cmd==='pop'){
+    if(STATE.navigator.stack.length>1){
+      const snapshot=snapshotHeroes();
+      STATE.navigator.stack.pop();
+      STATE.navigator.direction='pop';
+      paint({prevHeroes:snapshot});
+    }
+    return;
+  }
+  if(cmd.startsWith('snackbar:')){
+    const parts=cmd.slice(9).split('|');
+    STATE.overlay={type:'snackbar',message:parts[0]||'',action:parts[1]||''};
+    paint();
+    if(!parts[1]){
+      setTimeout(()=>{
+        if(STATE.overlay&&STATE.overlay.type==='snackbar'){
+          STATE.overlay=null;paint();
+        }
+      },3000);
+    }
+    return;
+  }
+  if(cmd.startsWith('dialog:')){
+    const parts=cmd.slice(7).split('|');
+    STATE.overlay={
+      type:'dialog',
+      title:parts[0]||'',
+      message:parts[1]||'',
+      confirmLabel:parts[2]||'Tamam',
+      confirmCmd:parts[3]||'closeDialog',
+      cancelLabel:parts[4]||''
+    };
+    paint();return;
+  }
+  if(cmd==='closeDialog'){STATE.overlay=null;paint();return}
+  if(cmd.startsWith('anim:')){
+    const parts=cmd.split(':');
+    const ctrl=ANIM[parts[1]];
+    if(ctrl&&typeof ctrl[parts[2]]==='function'){
+      ctrl[parts[2]]();
+    } else {
+      log('âš ï¸ Animasyon: '+cmd,'err');
+    }
+    return;
+  }
+  for(const cn in STATEFUL_INSTANCES){
+    const inst=STATEFUL_INSTANCES[cn];
+    if(inst.stateClass.methods[cmd]){
+      runStatements(inst.stateClass.methods[cmd].statements,inst);
+      paint();return;
+    }
+  }
+  const m=cmd.match(/^(\w+)\s*(\+\+|--|\+=|-=|=)\s*(.*)$/);
+  if(m){
+    for(const cn in STATEFUL_INSTANCES){
+      const inst=STATEFUL_INSTANCES[cn];
+      if(m[1] in inst.fields){
+        const cur=inst.fields[m[1]]||0;
+        const num=typeof cur==='number'?cur:0;
+        if(m[2]==='++')inst.fields[m[1]]=num+1;
+        else if(m[2]==='--')inst.fields[m[1]]=num-1;
+        else if(m[2]==='+=')inst.fields[m[1]]=num+(parseFloat(m[3])||0);
+        else if(m[2]==='-=')inst.fields[m[1]]=num-(parseFloat(m[3])||0);
+        else if(m[2]==='='){
+          const v=m[3];
+          const numV=parseFloat(v);
+          inst.fields[m[1]]=isNaN(numV)?v:numV;
+        }
+        paint();return;
+      }
+    }
+    if(m[1] in STATE){
+      const cur=STATE[m[1]]||0;
+      if(m[2]==='++')STATE[m[1]]=cur+1;
+      else if(m[2]==='--')STATE[m[1]]=cur-1;
+      else if(m[2]==='+=')STATE[m[1]]=cur+(parseFloat(m[3])||0);
+      else if(m[2]==='-=')STATE[m[1]]=cur-(parseFloat(m[3])||0);
+      else if(m[2]==='=')STATE[m[1]]=parseFloat(m[3]);
+      paint();return;
+    }
+  }
+  const fn=BUILTIN_COMMANDS[cmd];
+  if(fn){fn();paint();return}
+  log('âš ï¸ Bilinmeyen komut: "'+cmd+'"','err');
+}
+
+window.__press=handlePress;
+window.__input=(k,v)=>{STATE.inputs[k]=v};
+window.__slider=(k,v,el)=>{
+  STATE.sliders[k]=parseFloat(v);
+  const l=el.parentElement.querySelector('.slider-val');
+  if(l)l.textContent=Math.round(v);
+};
+
+function snapshotHeroes(){
+  const snap={};
+  const heroes=phoneEl.querySelectorAll('[data-hero]');
+  const rect=phoneEl.getBoundingClientRect();
+  const scale=phoneWrap._scale||1;
+  heroes.forEach(h=>{
+    const r=h.getBoundingClientRect();
+    snap[h.dataset.hero]={
+      top:(r.top-rect.top)/scale,
+      left:(r.left-rect.left)/scale,
+      width:r.width/scale,
+      height:r.height/scale
+    };
+  });
+  return snap;
+}
+
+function animateHeroes(prev){
+  if(!prev)return;
+  const heroes=phoneEl.querySelectorAll('[data-hero]');
+  const rect=phoneEl.getBoundingClientRect();
+  const scale=phoneWrap._scale||1;
+  heroes.forEach(h=>{
+    const tag=h.dataset.hero;
+    if(!prev[tag])return;
+    const r=h.getBoundingClientRect();
+    const np={
+      top:(r.top-rect.top)/scale,
+      left:(r.left-rect.left)/scale,
+      width:r.width/scale,
+      height:r.height/scale
+    };
+    const old=prev[tag];
+    if(Math.abs(old.top-np.top)<2&&Math.abs(old.left-np.left)<2&&Math.abs(old.width-np.width)<2&&Math.abs(old.height-np.height)<2)return;
+    const el=h;
+    el.style.position='absolute';
+    el.style.zIndex='500';
+    el.style.top=old.top+'px';
+    el.style.left=old.left+'px';
+    el.style.width=old.width+'px';
+    el.style.height=old.height+'px';
+    el.style.transition='none';
+    void el.offsetHeight;
+    el.style.transition='top .35s cubic-bezier(.4,0,.2,1), left .35s cubic-bezier(.4,0,.2,1), width .35s, height .35s';
+    el.style.top=np.top+'px';
+    el.style.left=np.left+'px';
+    el.style.width=np.width+'px';
+    el.style.height=np.height+'px';
+    setTimeout(()=>{
+      el.style.position='';
+      el.style.zIndex='';
+      el.style.top='';
+      el.style.left='';
+      el.style.width='';
+      el.style.height='';
+      el.style.transition='';
+    },380);
+  });
+}
+
+/* ============================================================
+   13) Ã–RNEKLER
+   ============================================================ */
+const PRESETS={
+  counter:`class Counter extends StatefulWidget {
+  @override
+  State<Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<Counter> {
+  int count = 0;
+  int adim = 1;
+
+  void artir() { count += adim; }
+  void azalt() { count -= adim; }
+  void sifirla() { count = 0; }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("SayaÃ§ â€” \${count}")),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 20,
+          children: [
+            Icon(Icons.flutter_dash, size: 96),
+            Text("\${count}", size: 80, weight: "bold", color: Colors.blue),
+            Text("AdÄ±m: \${adim}", size: 14, color: Colors.grey),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 12,
+              children: [
+                OutlinedButton("âˆ’\${adim}", onPressed: "azalt"),
+                ElevatedButton("+\${adim}", onPressed: "artir"),
+                TextButton("SÄ±fÄ±rla", onPressed: "sifirla")
+              ]
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 8,
+              children: [
+                TextButton("1", onPressed: "adim=1"),
+                TextButton("5", onPressed: "adim=5"),
+                TextButton("10", onPressed: "adim=10")
+              ]
+            )
+          ]
+        )
+      )
+    );
+  }
+}
+
+Widget build(BuildContext context) {
+  return Counter();
+}`,
+
+  expr:`const fiyat = 250;
+const adet = 3;
+const kdv = 0.20;
+
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text("AST Ä°fade Parser"), backgroundColor: Colors.indigo),
+    body: Padding(
+      padding: 20,
+      child: Column(
+        spacing: 16,
+        children: [
+          Card(child: Padding(
+            padding: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 12,
+              children: [
+                Text("Sepet HesabÄ±", weight: "bold", size: 18, color: Colors.indigo),
+                Row(spacing: 8, children: [
+                  Text("Fiyat:", size: 14),
+                  Text("\${{ fiyat }} â‚º")
+                ]),
+                Row(spacing: 8, children: [
+                  Text("Adet:", size: 14),
+                  Text("\${{ adet }}")
+                ]),
+                Row(spacing: 8, children: [
+                  Text("Ara toplam:", size: 14),
+                  Text("\${{ fiyat * adet }} â‚º", weight: "bold")
+                ]),
+                Row(spacing: 8, children: [
+                  Text("KDV:", size: 14),
+                  Text("\${{ (fiyat * adet * kdv).toFixed(2) }} â‚º", color: Colors.orange)
+                ]),
+                Divider(),
+                Row(spacing: 8, children: [
+                  Text("TOPLAM:", weight: "bold"),
+                  Text("\${{ (fiyat * adet * (1 + kdv)).toFixed(2) }} â‚º", weight: "bold", size: 20, color: Colors.green)
+                ])
+              ]
+            )
+          )),
+          Card(child: Padding(
+            padding: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 10,
+              children: [
+                Text("KarÅŸÄ±laÅŸtÄ±rma", weight: "bold"),
+                Text("\${{ fiyat > 100 ? 'PahalÄ± Ã¼rÃ¼n' : 'Ucuz Ã¼rÃ¼n' }}", color: Colors.purple),
+                Text("Ä°ndirim: \${{ fiyat > 200 ? '20%' : fiyat > 100 ? '10%' : '0%' }}", color: Colors.red)
+              ]
+            )
+          )),
+          Card(child: Padding(
+            padding: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 10,
+              children: [
+                Text("Matematik", weight: "bold"),
+                Text("Max(10, 25) = \${{ Math.max(10, 25) }}"),
+                Text("Sqrt(144) = \${{ Math.sqrt(144) }}"),
+                Text("Round(3.7) = \${{ Math.round(3.7) }}")
+              ]
+            )
+          ))
+        ]
+      )
+    )
+  );
+}`,
+
+  anim:`Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text("Animasyon"), backgroundColor: Colors.pink),
+    body: Padding(
+      padding: 20,
+      child: Column(
+        spacing: 20,
+        children: [
+          AnimationController(name: "kutu", duration: 1500, value: 0),
+          Text("Kontrol Paneli", weight: "bold", size: 18),
+          Card(child: Padding(
+            padding: 20,
+            child: Column(
+              spacing: 16,
+              children: [
+                AnimatedBuilder(
+                  animation: "kutu",
+                  builder: (context, anim) => Container(
+                    width: \${{ 100 + 200 * anim.value }},
+                    height: 60,
+                    borderRadius: 12,
+                    color: Colors.pink,
+                    alignment: Alignment.center,
+                    child: Text("\${{ Math.round(100 + 200 * anim.value) }} px",
+                      color: Colors.white, weight: "bold")
+                  )
+                ),
+                LinearProgressIndicator(value: \${{ ANIM.kutu ? ANIM.kutu.value : 0 }})
+              ]
+            )
+          )),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 10,
+            children: [
+              ElevatedButton("Ä°leri", color: Colors.pink, onPressed: "anim:kutu:forward"),
+              OutlinedButton("Geri", onPressed: "anim:kutu:reverse"),
+              TextButton("SÄ±fÄ±rla", onPressed: "anim:kutu:reset")
+            ]
+          )
+        ]
+      )
+    )
+  );
+}`,
+
+  prefs:`class PrefsOrnek extends StatefulWidget {
+  @override
+  State<PrefsOrnek> createState() => _PrefsState();
+}
+
+class _PrefsState extends State<PrefsOrnek> {
+  int ziyaret = 0;
+  String ad = "Misafir";
+
+  void kaydet() {
+    Prefs.setString("ad", ad);
+    Prefs.setInt("ziyaret", ziyaret);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("KalÄ±cÄ± State"), backgroundColor: Colors.teal),
+      body: Padding(
+        padding: 20,
+        child: Column(
+          spacing: 16,
+          children: [
+            Card(child: Padding(
+              padding: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [
+                  Text("KayÄ±tlÄ± DeÄŸerler", weight: "bold", size: 16),
+                  Text("Ad: \${Prefs.getString('ad', 'Misafir')}", size: 14),
+                  Text("Ziyaret: \${Prefs.getInt('ziyaret', 0)}", size: 14),
+                  Text("Koyu: \${Prefs.getBool('koyu', false) ? 'Evet' : 'HayÄ±r'}", size: 14)
+                ]
+              )
+            )),
+            ElevatedButton("Ad Kaydet", color: Colors.teal, onPressed: "kaydet"),
+            TextButton("Ziyaret++", onPressed: "ziyaret++"),
+            TextButton("Temizle", onPressed: "prefsClear")
+          ]
+        )
+      )
+    );
+  }
+}
+
+Widget build(BuildContext context) => PrefsOrnek();`,
+
+  theme:`Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text("Theme.of()"),
+      backgroundColor: Theme.of(context).primaryColor
+    ),
+    body: Padding(
+      padding: 20,
+      child: Column(
+        spacing: 16,
+        children: [
+          Text("Aktif tema: \${STATE.theme}", size: 18, weight: "bold"),
+          Card(child: Padding(
+            padding: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 12,
+              children: [
+                Text("Renkler", weight: "bold"),
+                Row(spacing: 12, children: [
+                  Container(width: 40, height: 40, borderRadius: 8, color: Theme.of(context).primaryColor),
+                  Text("primaryColor", size: 13)
+                ]),
+                Row(spacing: 12, children: [
+                  Container(width: 40, height: 40, borderRadius: 8, color: Theme.of(context).accentColor),
+                  Text("accentColor", size: 13)
+                ]),
+                Row(spacing: 12, children: [
+                  Container(width: 40, height: 40, borderRadius: 8, color: Theme.of(context).errorColor),
+                  Text("errorColor", size: 13)
+                ])
+              ]
+            )
+          )),
+          ElevatedButton("AÃ§Ä±k", onPressed: "setLight"),
+          OutlinedButton("Koyu", onPressed: "setDark"),
+          TextButton("DeÄŸiÅŸtir", onPressed: "toggleTheme")
+        ]
+      )
+    )
+  );
+}`,
+
+  multi:`// main.dart â€” diÄŸer dosyayÄ± import eder
+import 'widgets.dart';
+
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text("Ã‡oklu Dosya"), backgroundColor: Colors.deepPurple),
+    body: Padding(
+      padding: 16,
+      child: Column(
+        spacing: 16,
+        children: [
+          Text("Import ile gelen widget'lar", weight: "bold", size: 16),
+          UrunKarti(baslik: "Kablosuz KulaklÄ±k", fiyat: 899, renk: Colors.deepPurple),
+          UrunKarti(baslik: "AkÄ±llÄ± Saat", fiyat: 1499, renk: Colors.blue),
+          UrunKarti(baslik: "HoparlÃ¶r", fiyat: 549, renk: Colors.teal),
+          Divider(),
+          Card(child: Padding(
+            padding: 12,
+            child: Text("Uygulama: \${UYGULAMA_ADI}")
+          ))
+        ]
+      )
+    )
+  );
+}`,
+
+  async:`Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text("AsyncBuilder"), backgroundColor: Colors.indigo),
+    body: Padding(
+      padding: 20,
+      child: Column(
+        spacing: 20,
+        children: [
+          Card(child: Padding(
+            padding: 20,
+            child: AsyncBuilder(
+              delay: 2000,
+              value: "Veri yÃ¼klendi",
+              builder: (context, snapshot) => Column(
+                spacing: 12,
+                children: [
+                  if (snapshot.loading)
+                    Column(spacing: 12, children: [
+                      CircularProgressIndicator(size: 48),
+                      Text("YÃ¼kleniyor...", color: Colors.grey)
+                    ]),
+                  if (snapshot.hasData)
+                    Column(spacing: 8, children: [
+                      Icon(Icons.check, size: 48, color: Colors.green),
+                      Text("BaÅŸarÄ±lÄ±!", weight: "bold", color: Colors.green),
+                      Text("\${snapshot.data}", size: 13, color: Colors.grey)
+                    ])
+                ]
+              )
+            )
+          )),
+          ElevatedButton("Yenile", color: Colors.indigo, onPressed: "resetAsync")
+        ]
+      )
+    )
+  );
+}`,
+
+  list:`const N = 8;
+const meyveler = ["Elma", "Muz", "Ã‡ilek", "Kiraz"];
+
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text("if / for / Builder"), backgroundColor: Colors.teal),
+    body: Column(
+      spacing: 8,
+      children: [
+        Padding(
+          padding: 16,
+          child: Text("for-in ile liste", weight: "bold", size: 16)
+        ),
+        for (var m in meyveler)
+          Card(child: Row(spacing: 12, children: [
+            Icon(Icons.check, color: Colors.green),
+            Text(m, weight: "bold")
+          ])),
+        Divider(),
+        Padding(
+          padding: 16,
+          child: Text("ListView.builder", weight: "bold", size: 16)
+        ),
+        Expanded(child: ListView.builder(
+          itemCount: N,
+          itemBuilder: (context, i) => Card(
+            child: Row(spacing: 12, children: [
+              CircleAvatar(radius: 18, backgroundColor: Colors.teal,
+                child: Text("\${i+1}", color: Colors.white, weight: "bold")),
+              Expanded(child: Text("ÃœrÃ¼n #\${i+1}")),
+              Text("\${(100 + i * 25)} â‚º", color: Colors.teal, weight: "bold")
+            ])
+          )
+        ))
+      ]
+    )
+  );
+}`,
+
+  hero:`MaterialApp(
+  home: Scaffold(
+    appBar: AppBar(title: Text("Hero"), backgroundColor: Colors.orange),
+    body: Center(
+      child: Card(
+        child: Row(spacing: 12, children: [
+          Hero(
+            tag: "logo",
+            child: CircleAvatar(radius: 32, backgroundColor: Colors.orange,
+              child: Icon(Icons.flutter_dash, size: 40))
+          ),
+          Expanded(child: Text("Karta tÄ±kla")),
+          IconButton(Icons.arrow_forward, onPressed: "push:/detay")
+        ])
+      )
+    )
+  ),
+  routes: {
+    "/detay": Scaffold(
+      appBar: AppBar(title: Text("Detay"), backgroundColor: Colors.orange),
+      body: Center(
+        child: Column(
+          spacing: 20,
+          children: [
+            Hero(
+              tag: "logo",
+              child: CircleAvatar(radius: 96, backgroundColor: Colors.orange,
+                child: Icon(Icons.flutter_dash, size: 120))
+            ),
+            Text("Hero ile BÃ¼yÃ¼dÃ¼!", size: 24, weight: "bold"),
+            ElevatedButton("Geri", color: Colors.orange, onPressed: "pop")
+          ]
+        )
+      )
+    )
+  }
+)`,
+
+  rich:`Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text("RichText"), backgroundColor: Colors.indigo),
+    body: Padding(
+      padding: 20,
+      child: Column(
+        spacing: 16,
+        children: [
+          Card(child: Padding(
+            padding: 16,
+            child: Text.rich(TextSpan(
+              text: "Flutter ",
+              style: TextStyle(fontSize: 20, color: Colors.blue, fontWeight: "bold"),
+              children: [
+                TextSpan(text: "Ã¶ÄŸrenmek ", style: TextStyle(fontSize: 20, color: Colors.green)),
+                TextSpan(text: "Ã§ok kolay!", style: TextStyle(fontSize: 20, color: Colors.red, fontWeight: "bold"))
+              ]
+            ))
+          )),
+          RichText(text: TextSpan(
+            text: "Fiyat: ",
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+            children: [
+              TextSpan(text: "1.299 â‚º", style: TextStyle(fontSize: 16, color: Colors.purple, fontWeight: "bold"))
+            ]
+          ))
+        ]
+      )
+    )
+  );
+}`,
+
+  gesture:`Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text("Gesture"), backgroundColor: Colors.teal),
+    body: Padding(
+      padding: 16,
+      child: Column(
+        spacing: 16,
+        children: [
+          Card(child: Column(children: [
+            InkWell(
+              onTap: "snackbar:Profil aÃ§Ä±ldÄ±",
+              child: Padding(padding: 16, child: Row(spacing: 12, children: [
+                Icon(Icons.person, color: Colors.blue),
+                Expanded(child: Text("Profil")),
+                Icon(Icons.arrow_forward, color: Colors.grey)
+              ]))
+            ),
+            Divider(),
+            InkWell(
+              onTap: "toggleTheme",
+              child: Padding(padding: 16, child: Row(spacing: 12, children: [
+                Icon(Icons.dark_mode, color: Colors.purple),
+                Expanded(child: Text("Tema")),
+                Icon(Icons.arrow_forward, color: Colors.grey)
+              ]))
+            )
+          ])),
+          GestureDetector(
+            onTap: "increment",
+            child: Container(
+              padding: 20,
+              borderRadius: 12,
+              color: Colors.teal,
+              alignment: Alignment.center,
+              child: Text("TÄ±kla (\${STATE.counter})", color: Colors.white, weight: "bold")
+            )
+          )
+        ]
+      )
+    )
+  );
+}`,
+
+  nav:`MaterialApp(
+  home: Scaffold(
+    appBar: AppBar(title: Text("Navigator + Drawer")),
+    drawer: Drawer(child: Column(children: [
+      UserAccountsDrawerHeader(
+        name: Text("AyÅŸe YÄ±lmaz"),
+        email: Text("ayse@example.com"),
+        backgroundColor: Colors.deepPurple
+      ),
+      ListTile(leading: Icon(Icons.home, color: Colors.blue), title: Text("Ana"), onTap: "closeDrawer"),
+      ListTile(leading: Icon(Icons.dark_mode, color: Colors.purple), title: Text("Tema"), onTap: "toggleTheme"),
+      ListTile(leading: Icon(Icons.exit_to_app, color: Colors.red), title: Text("Ã‡Ä±kÄ±ÅŸ"))
+    ])),
+    body: Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        spacing: 16,
+        children: [
+          Icon(Icons.flutter_dash, size: 96),
+          Text("Sol Ã¼stteki â˜° menÃ¼ye bas", size: 14, color: Colors.grey),
+          ElevatedButton("Detay SayfasÄ±", onPressed: "push:/detay")
+        ]
+      )
+    )
+  ),
+  routes: {
+    "/detay": Scaffold(
+      appBar: AppBar(title: Text("Detay"), backgroundColor: Colors.purple),
+      body: Center(
+        child: Column(
+          spacing: 16,
+          children: [
+            Icon(Icons.info, size: 64, color: Colors.purple),
+            Text("Detay EkranÄ±", size: 22, weight: "bold"),
+            ElevatedButton("Geri", color: Colors.purple, onPressed: "pop")
+          ]
+        )
+      )
+    )
+  }
+)`
+};
+
+/* ============================================================
+   14) Ã‡OKLU DOSYA
+   ============================================================ */
+const FILES_KEY='flutter_files_v9';
+let FILES={};
+let ACTIVE_FILE='main.dart';
+
+function loadFiles(){
+  try{
+    const raw=localStorage.getItem(FILES_KEY);
+    if(raw){
+      FILES=JSON.parse(raw);
+      if(!FILES['main.dart'])FILES['main.dart']=PRESETS.counter;
+    } else {
+      FILES={'main.dart':PRESETS.counter};
+    }
+  }catch(e){
+    FILES={'main.dart':PRESETS.counter};
+  }
+  if(!FILES[ACTIVE_FILE])ACTIVE_FILE=Object.keys(FILES)[0]||'main.dart';
+}
+
+function saveFiles(){
+  try{localStorage.setItem(FILES_KEY,JSON.stringify(FILES))}catch(e){}
+}
+
+function renderTabs(){
+  const bar=document.getElementById('tabs');
+  bar.querySelectorAll('.tab').forEach(t=>t.remove());
+  const actions=bar.querySelector('.tab-actions');
+  Object.keys(FILES).forEach(name=>{
+    const tab=document.createElement('div');
+    tab.className='tab'+(name===ACTIVE_FILE?' active':'');
+    tab.innerHTML='<span>'+esc(name)+'</span>'+(Object.keys(FILES).length>1?'<span class="close" data-name="'+escAttr(name)+'">Ã—</span>':'');
+    tab.addEventListener('click',e=>{
+      if(e.target.classList.contains('close'))return;
+      switchFile(name);
+    });
+    bar.insertBefore(tab,actions);
+  });
+  bar.querySelectorAll('.close').forEach(b=>{
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      const name=b.dataset.name;
+      if(!confirm(name+' silinsin mi?'))return;
+      delete FILES[name];
+      if(ACTIVE_FILE===name)ACTIVE_FILE=Object.keys(FILES)[0];
+      saveFiles();renderTabs();switchFile(ACTIVE_FILE);
+    });
+  });
+}
+
+function switchFile(name){
+  FILES[ACTIVE_FILE]=codeEl.value;
+  ACTIVE_FILE=name;
+  saveFiles();renderTabs();
+  codeEl.value=FILES[name]||'';
+  run();
+}
+
+function addFile(){
+  const name=prompt('Yeni dosya adÄ±:','widgets.dart');
+  if(!name||FILES[name])return;
+  FILES[name]='// '+name+'\n';
+  saveFiles();renderTabs();switchFile(name);
+}
+
+/* ============================================================
+   15) UYGULAMA
+   ============================================================ */
+const PHONE_W=380,PHONE_H=720,RING=8;
+const codeEl=document.getElementById('code');
+const logsEl=document.getElementById('logs');
+const statusEl=document.getElementById('status');
+const presetsEl=document.getElementById('presets');
+const previewPane=document.getElementById('preview-pane');
+const phoneEl=document.getElementById('phone');
+const phoneWrap=document.getElementById('phoneWrap');
+
+let lastAST=null;
+let debounce=null;
+let saveTimer=null;
+
+function log(msg,cls){
+  const d=document.createElement('div');
+  if(cls)d.className=cls;
+  d.textContent=msg;
+  logsEl.appendChild(d);
+  logsEl.scrollTop=logsEl.scrollHeight;
+  while(logsEl.childElementCount>200)logsEl.removeChild(logsEl.firstChild);
+}
+
+function setStatus(t,ok){
+  statusEl.textContent=t;
+  statusEl.className='status'+(ok===false?' err':'');
+}
+
+function showToast(m){
+  const t=document.getElementById('toast');
+  t.textContent=m;
+  t.classList.add('show');
+  clearTimeout(t._tt);
+  t._tt=setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+function fitPhone(){
+  if(STANDALONE){phoneWrap._scale=1;return;}
+  const aw=previewPane.clientWidth-12;
+  const ah=previewPane.clientHeight-12;
+  if(aw<=0||ah<=0)return;
+  const scale=Math.min(aw/(PHONE_W+RING*2),ah/(PHONE_H+RING*2),1);
+  phoneWrap._scale=scale;
+  phoneWrap.style.transform='scale('+scale+')';
+}
+
+window.addEventListener('resize',fitPhone);
+if(window.ResizeObserver)new ResizeObserver(fitPhone).observe(previewPane);
+
+function paint(options){
+  options=options||{};
+  if(!lastAST)return;
+  try{
+    ASYNC_ID_STORE.async_counter=0;
+    let html=render(lastAST);
+    phoneEl.classList.toggle('theme-dark',STATE.theme==='dark');
+    html+=renderOverlay(STATE.overlay);
+    if(STATE.sheet.open){
+      html+='<div class="f-sheet-backdrop" onclick="window.__press(\'closeSheet\')"></div><div class="f-sheet"><div style="text-align:center;font-size:16px;font-weight:600;margin-bottom:12px;color:var(--fg)">SeÃ§enekler</div><div style="display:flex;flex-direction:column;gap:4px"><button class="f-btn text" style="justify-content:flex-start;padding:14px;text-align:left" onclick="window.__press(\'closeSheet\')">ğŸ“·  FotoÄŸraf Ã‡ek</button><button class="f-btn text" style="justify-content:flex-start;padding:14px;text-align:left" onclick="window.__press(\'closeSheet\')">ğŸ–¼ï¸  Galeriden SeÃ§</button></div></div>';
+    }
+    phoneEl.innerHTML=html;
+    fitPhone();
+    if(options.prevHeroes){
+      requestAnimationFrame(()=>animateHeroes(options.prevHeroes));
+    }
+    showPrefsRefresh();
+  }catch(e){
+    log('âœ— Ã‡izim hatasÄ±: '+e.message,'err');
+  }
+}
+
+function run(){
+  FILES[ACTIVE_FILE]=codeEl.value;
+  saveFiles();
+  const src=codeEl.value;
+  if(!src.trim()){setStatus('BoÅŸ',false);return}
+  logsEl.innerHTML='';
+  try{
+    STATE.navigator={stack:['/'],direction:'none'};
+    STATE.tabs={};
+    STATE.drawer={open:false};
+    STATE.sheet={open:false};
+    STATE.overlay=null;
+    STATE.async={};
+    STATE.hasDrawer=false;
+    ASYNC_ID_STORE.async_counter=0;
+    SCOPE_STACK.length=0;
+    SCOPE_STACK.push({});
+    PROGRAM.vars={};
+    PROGRAM.classes={};
+    PROGRAM.imports=[];
+    for(const k in STATEFUL_INSTANCES)delete STATEFUL_INSTANCES[k];
+    for(const k in ANIM)delete ANIM[k];
+
+    const t0=performance.now();
+
+    const prog=parseProgram(src);
+    const imported=[];
+    prog.imports.forEach(imp=>{
+      const clean=imp.replace(/^\.\//,'');
+      if(FILES[clean]&&clean!==ACTIVE_FILE){
+        imported.push(clean);
+        const sub=parseProgram(FILES[clean]);
+        for(const k in sub.vars)PROGRAM.vars[k]=sub.vars[k];
+        for(const k in sub.classes)PROGRAM.classes[k]=sub.classes[k];
+      }
+    });
+    for(const k in prog.vars)PROGRAM.vars[k]=prog.vars[k];
+    for(const k in prog.classes)PROGRAM.classes[k]=prog.classes[k];
+
+    lastAST=prog.widget;
+    const dt=(performance.now()-t0).toFixed(1);
+
+    if(!lastAST){
+      log('âš ï¸ Widget bulunamadÄ±. Scaffold/MaterialApp veya build() bekleniyor.','err');
+      setStatus('BoÅŸ',false);
+      return;
+    }
+    paint();
+    const vc=Object.keys(PROGRAM.vars).length;
+    const cc=Object.keys(PROGRAM.classes).length;
+    let info='âœ“ Derlendi ('+dt+' ms)';
+    if(vc)info+=' â€” '+vc+' deÄŸiÅŸken';
+    if(cc)info+=' â€” '+cc+' class';
+    if(imported.length)info+=' â€” import: '+imported.join(', ');
+    log(info,'ok');
+    setStatus('Ã‡alÄ±ÅŸÄ±yor',true);
+  }catch(e){
+    lastAST=null;
+    log('âœ— Hata: '+e.message,'err');
+    setStatus('Hata',false);
+  }
+}
+
+/* Prefs panel */
+function showPrefsRefresh(){
+  const p=document.getElementById('prefs-panel');
+  if(!p.classList.contains('show'))return;
+  const all=Prefs.all();
+  const keys=Object.keys(all);
+  let html='<div style="color:#4ec9b0;margin-bottom:8px;font-weight:600">ğŸ’¾ Prefs</div>';
+  if(!keys.length)html+='<div style="color:#808080">(boÅŸ)</div>';
+  keys.forEach(k=>{
+    html+='<div class="p-row"><span class="p-key">'+esc(k)+'</span>: <span class="p-val">'+esc(JSON.stringify(all[k]))+'</span></div>';
+  });
+  html+='<div style="margin-top:12px"><button onclick="Prefs.clear();showPrefsRefresh();" style="background:#c62828;color:#fff;border:0;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">TÃ¼mÃ¼nÃ¼ Sil</button></div>';
+  p.innerHTML=html;
+}
+window.showPrefsRefresh=showPrefsRefresh;
+
+function togglePrefs(){
+  const p=document.getElementById('prefs-panel');
+  p.classList.toggle('show');
+  if(p.classList.contains('show'))showPrefsRefresh();
+}
+
+/* ============================================================
+   16) APK PAKETÄ° OLUÅTUR
+   ============================================================ */
+async function exportApkPackage(){
+  if(typeof JSZip==='undefined'){
+    showToast('âš ï¸ JSZip yÃ¼klenemedi â€” internet baÄŸlantÄ±sÄ±nÄ± kontrol et');
+    return;
+  }
+  try{
+    const userCode=codeEl.value;
+    if(!userCode.trim()){showToast('âš ï¸ Ã–nce kod yaz');return}
+
+    /* 1) Bu dosyanÄ±n kaynak HTML'ini al */
+    let selfHtml;
+    try{
+      const resp=await fetch(location.href,{cache:'no-store'});
+      if(!resp.ok)throw new Error('fetch baÅŸarÄ±sÄ±z');
+      selfHtml=await resp.text();
+    }catch(e){
+      /* file:// veya CORS durumunda DOM'dan al */
+      selfHtml='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+    }
+
+    /* 2) KullanÄ±cÄ± kodunu base64'e Ã§evir (UTF-8 uyumlu) */
+    const b64=btoa(unescape(encodeURIComponent(userCode)));
+
+    /* 3) Standalone modda baÅŸlamasÄ± iÃ§in iÅŸaretÃ§ileri enjekte et */
+    const marker='<script>window.__STANDALONE_MODE=true;window.__STANDALONE_CODE="'+b64+'";<\/script>';
+    selfHtml=selfHtml.replace(/<head([^>]*)>/i,'<head$1>\n'+marker);
+
+    /* 4) PWA manifest ve theme-color linkleri */
+    selfHtml=selfHtml.replace(/<head([^>]*)>/i,
+      '<head$1>\n<link rel="manifest" href="manifest.json">\n<meta name="theme-color" content="#2196F3">');
+    selfHtml=selfHtml.replace(/<\/body>/i,
+      '<script>if("serviceWorker" in navigator && location.protocol!=="file:"){navigator.serviceWorker.register("service-worker.js").catch(function(){});}<\/script>\n</body>');
+
+    /* 5) PWA manifesti */
+    const manifest={
+      name:"Flutter Uygulamam",
+      short_name:"FlutterApp",
+      start_url:"./index.html",
+      scope:"./",
+      display:"standalone",
+      background_color:"#121212",
+      theme_color:"#2196F3",
+      orientation:"any",
+      icons:[
+        {src:"icon-192.png",sizes:"192x192",type:"image/png",purpose:"any maskable"},
+        {src:"icon-512.png",sizes:"512x512",type:"image/png",purpose:"any maskable"}
+      ]
+    };
+
+    /* 6) Service worker */
+    const sw=`const CACHE='flutter-app-v1';
+const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS).catch(()=>{})));self.skipWaiting()});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
+self.addEventListener('fetch',e=>{
+  e.respondWith(
+    caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{
+      if(resp.ok&&e.request.method==='GET'){
+        const copy=resp.clone();
+        caches.open(CACHE).then(c=>c.put(e.request,copy)).catch(()=>{});
+      }
+      return resp;
+    }).catch(()=>caches.match('./index.html')))
+  );
+});`;
+
+    /* 7) Ä°konlar */
+    const icon192=await makeIcon(192);
+    const icon512=await makeIcon(512);
+
+    /* 8) README ve build_apk.py dosyalarÄ±nÄ± al (varsa) */
+    let readme='# Flutter Uygulamam\n\nAPK oluÅŸturma talimatlarÄ± iÃ§in GitHub repo README.md dosyasÄ±na bakÄ±n.\n';
+    let pyScript='# build_apk.py â€” GitHub repo kÃ¶kÃ¼ndeki dosyayÄ± kullanÄ±n\n';
+    try{
+      const r1=await fetch('README.md',{cache:'no-store'});
+      if(r1.ok)readme=await r1.text();
+    }catch(e){}
+    try{
+      const r2=await fetch('build_apk.py',{cache:'no-store'});
+      if(r2.ok)pyScript=await r2.text();
+    }catch(e){}
+
+    /* 9) ZIP oluÅŸtur */
+    const zip=new JSZip();
+    zip.file('index.html',selfHtml);
+    zip.file('manifest.json',JSON.stringify(manifest,null,2));
+    zip.file('service-worker.js',sw);
+    zip.file('icon-192.png',icon192,{binary:true});
+    zip.file('icon-512.png',icon512,{binary:true});
+    zip.file('README.md',readme);
+    zip.file('build_apk.py',pyScript);
+
+    const blob=await zip.generateAsync({
+      type:'blob',
+      compression:'DEFLATE',
+      compressionOptions:{level:6}
+    });
+
+    /* 10) Ä°ndir */
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='flutter-app-apk.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+
+    showToast('ğŸ“¦ ZIP indirildi â€” README.md dosyasÄ±nÄ± okuyun');
+    log('âœ“ APK paketi hazÄ±r. Ä°Ã§indeki README.md adÄ±mlarÄ±nÄ± takip edin.','ok');
+  }catch(e){
+    console.error(e);
+    showToast('âš ï¸ Hata: '+e.message);
+    log('âœ— Export hatasÄ±: '+e.message,'err');
+  }
+}
+
+/* Canvas ile 512Ã—512 ikon Ã¼ret (SVG yerine) */
+async function makeIcon(size){
+  return new Promise(resolve=>{
+    try{
+      const c=document.createElement('canvas');
+      c.width=size;c.height=size;
+      const ctx=c.getContext('2d');
+      /* Arka plan */
+      const grad=ctx.createLinearGradient(0,0,size,size);
+      grad.addColorStop(0,'#42A5F5');
+      grad.addColorStop(1,'#1565C0');
+      ctx.fillStyle=grad;
+      ctx.fillRect(0,0,size,size);
+      /* Flutter logosu â€” basit Ã¼Ã§gen+elmas */
+      const s=size/512;
+      ctx.fillStyle='rgba(255,255,255,0.95)';
+      /* Ãœst Ã¼Ã§gen */
+      ctx.beginPath();
+      ctx.moveTo(256*s,96*s);
+      ctx.lineTo(184*s,168*s);
+      ctx.lineTo(328*s,168*s);
+      ctx.closePath();
+      ctx.fill();
+      /* Orta dikdÃ¶rtgen (elmas) */
+      ctx.beginPath();
+      ctx.moveTo(256*s,180*s);
+      ctx.lineTo(340*s,264*s);
+      ctx.lineTo(256*s,348*s);
+      ctx.lineTo(172*s,264*s);
+      ctx.closePath();
+      ctx.fill();
+      /* Alt kÃ¼Ã§Ã¼k Ã¼Ã§gen */
+      ctx.beginPath();
+      ctx.moveTo(256*s,360*s);
+      ctx.lineTo(316*s,420*s);
+      ctx.lineTo(196*s,420*s);
+      ctx.closePath();
+      ctx.fill();
+      c.toBlob(b=>{
+        if(!b){resolve(new Uint8Array());return;}
+        b.arrayBuffer().then(resolve).catch(()=>resolve(new Uint8Array()));
+      },'image/png');
+    }catch(e){
+      resolve(new Uint8Array());
+    }
+  });
+}
+
+document.getElementById('apkBtn').onclick=exportApkPackage;
+
+/* Splitter */
+(function(){
+  const sp=document.getElementById('splitter');
+  const ep=document.getElementById('editor-pane');
+  let dragging=false;
+  sp.addEventListener('mousedown',e=>{
+    dragging=true;
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const rect=document.querySelector('main').getBoundingClientRect();
+    const minW=260;
+    let w=e.clientX-rect.left;
+    w=Math.max(minW,Math.min(rect.width-minW-6,w));
+    ep.style.flex='none';
+    ep.style.width=w+'px';
+    fitPhone();
+  });
+  window.addEventListener('mouseup',()=>{
+    if(!dragging)return;
+    dragging=false;
+    document.body.style.cursor='';
+    document.body.style.userSelect='';
+  });
+})();
+
+/* EditÃ¶r olaylarÄ± */
+codeEl.addEventListener('input',()=>{
+  FILES[ACTIVE_FILE]=codeEl.value;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveFiles,800);
+  clearTimeout(debounce);
+  debounce=setTimeout(run,400);
+});
+
+codeEl.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const s=codeEl.selectionStart,en=codeEl.selectionEnd;
+    codeEl.value=codeEl.value.slice(0,s)+'  '+codeEl.value.slice(en);
+    codeEl.selectionStart=codeEl.selectionEnd=s+2;
+  }
+});
+
+/* DÃ¼ÄŸmeler */
+document.getElementById('renderBtn').onclick=run;
+document.getElementById('prefsBtn').onclick=togglePrefs;
+document.getElementById('addFileBtn').onclick=addFile;
+
+presetsEl.onchange=()=>{
+  const v=presetsEl.value;
+  if(v==='multi'){
+    FILES['main.dart']=PRESETS.multi;
+    FILES['widgets.dart']=`// widgets.dart â€” paylaÅŸÄ±lan tanÄ±mlar
+
+const UYGULAMA_ADI = "AlÄ±ÅŸveriÅŸ";
+const PARA_BIRIMI = "â‚º";
+
+class UrunKarti extends StatelessWidget {
+  final String baslik;
+  final int fiyat;
+  final String renk;
+
+  UrunKarti({required this.baslik, required this.fiyat, required this.renk});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Row(
+        spacing: 12,
+        children: [
+          Container(
+            width: 48, height: 48, borderRadius: 12, color: renk,
+            child: Icon(Icons.shopping_cart, size: 28, color: Colors.white)
+          ),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 4,
+            children: [
+              Text(baslik, weight: "bold"),
+              Text("\${fiyat} \${PARA_BIRIMI}", color: renk, weight: "bold")
+            ]
+          )),
+          Icon(Icons.arrow_forward, color: Colors.grey)
+        ]
+      )
+    );
+  }
+}`;
+    ACTIVE_FILE='main.dart';
+    saveFiles();
+    renderTabs();
+    codeEl.value=FILES['main.dart'];
+    run();
+    return;
+  }
+  if(PRESETS[v]){
+    FILES[ACTIVE_FILE]=PRESETS[v];
+    saveFiles();
+    codeEl.value=PRESETS[v];
+    run();
+  }
+};
+
+document.getElementById('shareBtn').onclick=()=>{
+  try{
+    const data={files:FILES,active:ACTIVE_FILE};
+    const bytes=new TextEncoder().encode(JSON.stringify(data));
+    let bin='';
+    for(const b of bytes)bin+=String.fromCharCode(b);
+    const b64=btoa(bin);
+    const url=location.origin+location.pathname+'#v9='+b64;
+    history.replaceState(null,'','#v9='+b64);
+    navigator.clipboard.writeText(url).then(()=>showToast('ğŸ”— KopyalandÄ±!')).catch(()=>showToast('Link adres Ã§ubuÄŸunda!'));
+  }catch(e){showToast('âš ï¸ Hata')}
+};
+
+document.getElementById('clearBtn').onclick=()=>{
+  if(!confirm('TÃ¼m dosyalar + state + prefs sÄ±fÄ±rlansÄ±n mÄ±?'))return;
+  try{
+    localStorage.removeItem(FILES_KEY);
+    Prefs.clear();
+  }catch(e){}
+  FILES={'main.dart':PRESETS.counter};
+  ACTIVE_FILE='main.dart';
+  STATE.counter=0;
+  STATE.toggles={};
+  STATE.inputs={};
+  STATE.sliders={};
+  STATE.bottomNav={__main:0};
+  STATE.tabs={};
+  STATE.theme='light';
+  for(const k in STATEFUL_INSTANCES)delete STATEFUL_INSTANCES[k];
+  for(const k in ANIM)delete ANIM[k];
+  saveFiles();
+  renderTabs();
+  codeEl.value=FILES['main.dart'];
+  run();
+  showToast('ğŸ—‘ SÄ±fÄ±rlandÄ±');
+};
+
+/* ============================================================
+   17) BAÅLAT
+   ============================================================ */
+function init(){
+  try{
+    if(STANDALONE){
+      /* APK iÃ§i mod: kod base64'ten gelir, localStorage'dan dosya okuma */
+      try{
+        const decoded=decodeURIComponent(escape(atob(window.__STANDALONE_CODE||'')));
+        FILES={'main.dart':decoded};
+      }catch(e){
+        FILES={'main.dart':'// Hata: gÃ¶mÃ¼lÃ¼ kod Ã§Ã¶zÃ¼lemedi'};
+      }
+      ACTIVE_FILE='main.dart';
+    } else {
+      loadFiles();
+      /* URL hash'ten dosya yÃ¼kle */
+      if(location.hash.length>4){
+        try{
+          const hash=location.hash.slice(1);
+          if(hash.startsWith('v9=')){
+            const bin=atob(hash.slice(3));
+            const bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));
+            const json=new TextDecoder().decode(bytes);
+            const data=JSON.parse(json);
+            if(data.files){
+              FILES=data.files;
+              ACTIVE_FILE=data.active||Object.keys(data.files)[0];
+              saveFiles();
+            }
+          }
+        }catch(e){}
+      }
+    }
+    renderTabs();
+    codeEl.value=FILES[ACTIVE_FILE]||PRESETS.counter;
+    run();
+    requestAnimationFrame(fitPhone);
+    setTimeout(fitPhone,100);
+    if(STANDALONE){
+      log('ğŸ“± APK modunda Ã§alÄ±ÅŸÄ±yor','ok');
+    }
+  }catch(e){
+    log('âœ— BaÅŸlatma: '+e.message,'err');
+    setStatus('Hata',false);
+    console.error(e);
+  }
+}
+
+init();
+
+</script>
+</body>
+</html>
